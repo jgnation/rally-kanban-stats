@@ -9,10 +9,115 @@ Ext.define('CustomApp', {
     launch: function() {
         //Write app code here
         console.log('Our First App woot!');
-      	this._loadData();
+        this._createDateFields();
+      	//this._loadData();
     },
 
-    _loadData: function() {
+    _createDateFields: function() {
+		var start = Ext.create('Ext.Container', {
+	    	items: [{
+		        xtype: 'rallydatefield',
+		        fieldLabel: 'Start Date',
+		        value: this.startDate = new Date(),
+		        listeners: {
+					change: function(start, newValue, oldValue, eOpts) {
+						this.startDate = newValue;
+					},
+					scope: this
+	    		}
+	    	}],
+	    	renderTo: Ext.getBody().dom
+	    });
+
+	    var end = Ext.create('Ext.Container', {
+		    items: [{
+		        xtype: 'rallydatefield',
+		        fieldLabel: 'End Date',
+		        value: this.endDate = new Date(),
+		        listeners: {
+					change: function(start, newValue, oldValue, eOpts) {
+						this.endDate = newValue;
+					},
+					scope: this
+	    		}
+		    }],
+	    	renderTo: Ext.getBody().dom
+		});
+
+	    //create exclusion fields
+		var addExclusionButton = Ext.create('Ext.Container', {
+		    items: [{
+		        xtype: 'rallybutton',
+		        text: 'Add Exclusion',
+		        listeners: {
+	            	click: function(myStore, myData, success) {
+	            		this._createNewDateFields();
+	              	},
+	              	scope: this
+	            },
+		    }],
+		    renderTo: Ext.getBody().dom,
+		    scope: this
+		});
+
+		var getReportButton = Ext.create('Ext.Container', {
+		    items: [{
+		        xtype: 'rallybutton',
+		        text: 'Get Report',
+		        listeners: {
+	            	click: function(myStore, myData, success) {
+	            		var sDate = Rally.util.DateTime.toIsoString(this.startDate);
+	            		var eDate = Rally.util.DateTime.toIsoString(this.endDate);
+	                	this._loadData(sDate, eDate);
+	              	},
+	              	scope: this
+	            },
+		    }],
+		    renderTo: Ext.getBody().dom,
+		    scope: this
+		});
+
+		this.add(start);
+		this.add(end);
+		this.add(addExclusionButton);
+		this.add(getReportButton);
+    },
+
+    _createNewDateFields: function() {
+		var start = Ext.create('Ext.Container', {
+	    	items: [{
+		        xtype: 'rallydatefield',
+		        fieldLabel: 'Start Date',
+		        value: this.startDate = new Date(),
+		        listeners: {
+					change: function(start, newValue, oldValue, eOpts) {
+						this.startDate = newValue;
+					},
+					scope: this
+	    		}
+	    	}],
+	    	renderTo: Ext.getBody().dom
+	    });
+
+	    var end = Ext.create('Ext.Container', {
+		    items: [{
+		        xtype: 'rallydatefield',
+		        fieldLabel: 'End Date',
+		        value: this.endDate = new Date(),
+		        listeners: {
+					change: function(start, newValue, oldValue, eOpts) {
+						this.endDate = newValue;
+					},
+					scope: this
+	    		}
+		    }],
+	    	renderTo: Ext.getBody().dom
+		});
+		this.add(start);
+		this.add(end);
+    },
+
+    _loadData: function(startDate, endDate) {
 
       var myStore = Ext.create('Rally.data.wsapi.Store', {
           model: 'User Story',
@@ -29,10 +134,14 @@ Ext.define('CustomApp', {
 	          	value: '0'
 	          },
 	          {
-	          	//'2013-12-04T15:49:51.077Z'
-	          	property: 'AcceptedDate',
+	          	property: 'InProgressDate',
 	          	operator: '>=',
-	          	value: '2014-01-01T15:49:51.077Z'
+	          	value: startDate
+	          },
+	          {
+	          	property: 'AcceptedDate',
+	          	operator: '<=',
+	          	value: endDate
 	          }
           ],
           listeners: {
@@ -78,3 +187,13 @@ Ext.define('CustomApp', {
 
 //make a sweet pie chart
 
+
+
+
+//this works!
+	          // {
+	          // 	//'2013-12-04T15:49:51.077Z'
+	          // 	property: 'AcceptedDate',
+	          // 	operator: '>=',
+	          // 	value: '2014-01-01T15:49:51.077Z'
+	          // }
