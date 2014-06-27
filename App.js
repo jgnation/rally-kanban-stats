@@ -10,7 +10,62 @@ Ext.define('CustomApp', {
         //Write app code here
         console.log('Our First App woot!');
         this._createDateFields();
-      	//this._loadData();
+
+      	this.exclusionsStack = new Array();
+
+      	this.exclusionsContainer = Ext.create('Ext.container.Container', {
+      		title: 'Exclusions',
+	        layout: {
+	                //type: 'hbox', // 'horizontal' layout
+	                align: 'stretch'
+	        },
+	        items: [
+	        {
+		        xtype: 'label',
+		        text: 'Exclusions:'
+		    }]
+    	});
+
+    	this.add(this.exclusionsContainer);
+
+    	this._createButtons();
+    },
+
+    _createButtons: function() {
+	    //create exclusion fields
+		var addExclusionButton = Ext.create('Ext.Container', {
+		    items: [{
+		        xtype: 'rallybutton',
+		        text: 'Add Exclusion',
+		        listeners: {
+	            	click: function(myStore, myData, success) {
+	            		this._createExclusionFields();
+	              	},
+	              	scope: this
+	            },
+		    }],
+		    renderTo: Ext.getBody().dom,
+		    scope: this
+		});
+
+		var getReportButton = Ext.create('Ext.Container', {
+		    items: [{
+		        xtype: 'rallybutton',
+		        text: 'Get Report',
+		        listeners: {
+	            	click: function(myStore, myData, success) {
+	            		var sDate = Rally.util.DateTime.toIsoString(this.startDate);
+	            		var eDate = Rally.util.DateTime.toIsoString(this.endDate);
+	                	this._loadData(sDate, eDate);
+	              	},
+	              	scope: this
+	            },
+		    }],
+		    renderTo: Ext.getBody().dom,
+		    scope: this
+		});
+		this.add(addExclusionButton);
+		this.add(getReportButton);
     },
 
     _createDateFields: function() {
@@ -44,46 +99,18 @@ Ext.define('CustomApp', {
 	    	renderTo: Ext.getBody().dom
 		});
 
-	    //create exclusion fields
-		var addExclusionButton = Ext.create('Ext.Container', {
-		    items: [{
-		        xtype: 'rallybutton',
-		        text: 'Add Exclusion',
-		        listeners: {
-	            	click: function(myStore, myData, success) {
-	            		this._createNewDateFields();
-	              	},
-	              	scope: this
-	            },
-		    }],
-		    renderTo: Ext.getBody().dom,
-		    scope: this
-		});
-
-		var getReportButton = Ext.create('Ext.Container', {
-		    items: [{
-		        xtype: 'rallybutton',
-		        text: 'Get Report',
-		        listeners: {
-	            	click: function(myStore, myData, success) {
-	            		var sDate = Rally.util.DateTime.toIsoString(this.startDate);
-	            		var eDate = Rally.util.DateTime.toIsoString(this.endDate);
-	                	this._loadData(sDate, eDate);
-	              	},
-	              	scope: this
-	            },
-		    }],
-		    renderTo: Ext.getBody().dom,
-		    scope: this
-		});
-
 		this.add(start);
 		this.add(end);
-		this.add(addExclusionButton);
-		this.add(getReportButton);
     },
 
-    _createNewDateFields: function() {
+    _createExclusionFields: function() {
+    	var singleExclusionContainer = Ext.create('Ext.container.Container', {
+	        layout: {
+	                type: 'hbox', // 'horizontal' layout
+	                align: 'stretch'
+	            }
+    	});
+
 		var start = Ext.create('Ext.Container', {
 	    	items: [{
 		        xtype: 'rallydatefield',
@@ -113,8 +140,10 @@ Ext.define('CustomApp', {
 		    }],
 	    	renderTo: Ext.getBody().dom
 		});
-		this.add(start);
-		this.add(end);
+		singleExclusionContainer.add(start);
+		singleExclusionContainer.add(end);
+		//this.add(singleExclusionContainer);
+		this.exclusionsContainer.add(singleExclusionContainer);
     },
 
     _loadData: function(startDate, endDate) {
@@ -197,3 +226,11 @@ Ext.define('CustomApp', {
 	          // 	operator: '>=',
 	          // 	value: '2014-01-01T15:49:51.077Z'
 	          // }
+
+
+//horizontal layout of components, Interactive Grid, 34:00
+
+
+//every time I press 'Add Exclusion', create a new start field, and a new end field, and a new container
+//Add both of the fields to a container
+//add container to list of containers? or a stack!
