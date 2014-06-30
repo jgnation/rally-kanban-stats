@@ -1,6 +1,3 @@
-///project/2381863766 ?
-//YYYY-MM-DDT00:00:00Z
-//	"yyyy-MM-dd hh:mm:ss a", "MM/dd/yyyy hh:mm:ss a", "dd/MM/yyyy hh:mm:ss a", "yyyy/MM/dd hh:mm:ss a", "yyyy-MMM-dd hh:mm:ss a"
 
 Ext.Loader.setConfig({
     enabled:        true,
@@ -20,102 +17,102 @@ Ext.define('CustomApp', {
     items:{ html:'<a href="https://help.rallydev.com/apps/2.0rc3/doc/">App SDK 2.0rc3 Docs</a>'},
     launch: function() {
 
-    	this.excludedDates = new Array();
+	this.excludedDates = [];
 
         //Write app code here
         console.log('Our First App woot!');
         this._createDateFields();
 		this._addMultiDateCalendar();
-    	this._createButtons();
+		this._createButtons();
     },
 
     _createButtons: function() {
 		var getReportButton = Ext.create('Ext.Container', {
-		    items: [{
-		        xtype: 'rallybutton',
-		        text: 'Get Report',
-		        listeners: {
-	            	click: function(myStore, myData, success) {
-	            		var sDate = Rally.util.DateTime.toIsoString(this.startDate);
-	            		var eDate = Rally.util.DateTime.toIsoString(this.endDate);
-	                	this._loadData(sDate, eDate);
-	              	},
-	              	scope: this
-	            },
-		    }],
-		    renderTo: Ext.getBody().dom,
-		    scope: this
+			items: [{
+				xtype: 'rallybutton',
+				text: 'Get Report',
+				listeners: {
+					click: function(myStore, myData, success) {
+						var sDate = Rally.util.DateTime.toIsoString(this.startDate);
+						var eDate = Rally.util.DateTime.toIsoString(this.endDate);
+						this._loadData(sDate, eDate);
+					},
+				scope: this
+				}
+			}],
+			renderTo: Ext.getBody().dom,
+			scope: this
 		});
 		this.add(getReportButton);
-    },
+	},
 
     _createDateFields: function() {
 		var start = Ext.create('Ext.Container', {
-	    	items: [{
-		        xtype: 'rallydatefield',
-		        fieldLabel: 'Start Date',
-		        value: this.startDate = new Date(),
-		        listeners: {
+			items: [{
+				xtype: 'rallydatefield',
+				fieldLabel: 'Start Date',
+				value: this.startDate = new Date(),
+				listeners: {
 					change: function(start, newValue, oldValue, eOpts) {
 						this.startDate = newValue;
 					},
 					scope: this
-	    		}
-	    	}],
-	    	renderTo: Ext.getBody().dom
-	    });
+				}
+			}],
+			renderTo: Ext.getBody().dom
+		});
 
-	    var end = Ext.create('Ext.Container', {
-		    items: [{
-		        xtype: 'rallydatefield',
-		        fieldLabel: 'End Date',
-		        value: this.endDate = new Date(),
-		        listeners: {
+		var end = Ext.create('Ext.Container', {
+			items: [{
+				xtype: 'rallydatefield',
+				fieldLabel: 'End Date',
+				value: this.endDate = new Date(),
+				listeners: {
 					change: function(start, newValue, oldValue, eOpts) {
 						this.endDate = newValue;
 					},
 					scope: this
-	    		}
-		    }],
-	    	renderTo: Ext.getBody().dom
+				}
+			}],
+			renderTo: Ext.getBody().dom
 		});
 
 		this.add(start);
 		this.add(end);
-    },
+	},
 
-    _loadData: function(startDate, endDate) {
+	_loadData: function(startDate, endDate) {
 
-      var myStore = Ext.create('Rally.data.wsapi.Store', {
-          model: 'User Story',
-          autoLoad: true,
-          filters: [
-	          {
-	          	property: 'ScheduleState',
-	          	operation: '=',
-	          	value: 'Accepted'
-	          },
-	          {
-	          	property: 'DirectChildrenCount',
-	          	operation: '=',
-	          	value: '0'
-	          },
-	          {
-	          	property: 'InProgressDate',
-	          	operator: '>=',
-	          	value: startDate
-	          },
-	          {
-	          	property: 'AcceptedDate',
-	          	operator: '<=',
-	          	value: endDate
-	          }
-          ],
-          listeners: {
-              load: function(myStore, myData, success) {
-                console.log('got data!', myStore, myData, success);
-                var a = this.excludedDates; //this works
-			    var records = _.map(myData, function(record) {
+		var myStore = Ext.create('Rally.data.wsapi.Store', {
+			model: 'User Story',
+			autoLoad: true,
+			filters: [
+				{
+					property: 'ScheduleState',
+					operation: '=',
+					value: 'Accepted'
+				},
+				{
+					property: 'DirectChildrenCount',
+					operation: '=',
+					value: '0'
+				},
+				{
+					property: 'InProgressDate',
+					operator: '>=',
+					value: startDate
+				},
+				{
+					property: 'AcceptedDate',
+					operator: '<=',
+					value: endDate
+				}
+			],
+			listeners: {
+				load: function(myStore, myData, success) {
+					console.log('got data!', myStore, myData, success);
+					var a = this.excludedDates; //this works
+					var records = _.map(myData, function(record) {
 
 					function calculateDateDifference(record){
 						var inProgressDate = record.get('InProgressDate');
@@ -221,8 +218,8 @@ Ext.define('CustomApp', {
 			var store, panel;
 
 			panel = Ext.create('Ext.form.Panel', {
-		       // width:	200,
-		        //height: 200,
+		        width:	200,
+		        height: 200,
 		        
 		        id: 'formPanel',
 		        
@@ -230,7 +227,7 @@ Ext.define('CustomApp', {
 		        
 		        defaults: {
 		            autoScroll: true,
-		            //bodyPadding: 8,
+		            bodyPadding: 8,
 					listeners: {
 						specialkey: function(form, event) {
 							if (event.getKey() === event.ENTER) {
@@ -240,9 +237,9 @@ Ext.define('CustomApp', {
 					}
 		        },
 		        
-		        //position: 'absolute',
-		        //x:  20,
-		       // y:  20,
+		        position: 'absolute',
+		        x:  20,
+		        y:  20,
 		        
 		        items: [{
 		            xtype: 'multidatefield',
@@ -285,60 +282,7 @@ Ext.define('CustomApp', {
     }
 });
 
-//Add a date selector to get starting and ending date to run report on
-//add starting date and ending date to filter
-//run query.  I now have all the data I need
+//add a chart 
+//replace grid
+//fix switching months on calendar
 
-//add controls for exclusions:
-//exclude weekends checkbox
-//allow user to add as many date ranges as they want to exclude
-//add all excluded dates to an array (or something similar)
-//for each item returned from the query, see if any of the days between the starting and accepted date are within the excluded dates array
-//each match equals a date that should be subtracted from the 'days in progress value'
-//the days in progress value should be accepted date - in progress date
-
-//make a sweet pie chart
-
-
-
-
-//this works!
-	          // {
-	          // 	//'2013-12-04T15:49:51.077Z'
-	          // 	property: 'AcceptedDate',
-	          // 	operator: '>=',
-	          // 	value: '2014-01-01T15:49:51.077Z'
-	          // }
-
-
-//horizontal layout of components, Interactive Grid, 34:00
-
-
-//every time I press 'Add Exclusion', create a new start field, and a new end field, and a new container
-//Add both of the fields to a container
-//add container to list of containers? or a stack!
-
-
-
-//after hitting 'Get Report':
-//Run a report using the query that is already built
-//a)filter the results that are returned, removing the exclusions
-//b)use filters to remove weekends (this actually won't work because I still need calculate days in progress w/ the exclusions)
-
-
-//filtering exclusions:
-//a) 
-
-
-
-
-//ok, I have an array of exluded values
-//now I want to see if any of the days from the date range of each story overlap with the excluded dates
-
-
-//look at each story returned from the rally api
-//
-
-
-//user press getRecords
-//

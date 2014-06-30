@@ -4,10 +4,17 @@
    "server": "https://rally1.rallydev.com",
    "sdk": "2.0rc3",
    "javascript": [
-      "App.js"
+      "App.js",
+      "ux/form/field/MultiDate.js",
+      "ux/form/field/MultiMonth.js",
+      "ux/form/field/MultiTime.js",
+      "ux/form/field/MultiValue.js",
+      "ux/picker/MultiDate.js",
+      "ux/picker/MultiMonth.js",
+      "ux/picker/MultiTime.js"
    ],
    "css": [
       "app.css",
-      "multidate.css"
+      "resources/css/multidate.css"
    ]
 }
