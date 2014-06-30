@@ -114,34 +114,68 @@ Ext.define('CustomApp', {
           listeners: {
               load: function(myStore, myData, success) {
                 console.log('got data!', myStore, myData, success);
-                //can I alter 'myData' and then set that as myStore.data.items?
-                for (var i = 0; i < myData.length; i++) { //use map instead?
-				    var item = myData[i];
-				    item.data.DirectChildrenCount = 1; //I didn't figure out a way to get item.data.DaysInProgress to work
-				    //Do something
-				}
-				myStore.data.items = myData;
-                this._loadGrid(myStore);
+			    var records = _.map(myData, function(record) {
+
+					function calculateDateDifference(record){
+						var inProgressDate = record.get('InProgressDate');
+						var acceptedDate = record.get('AcceptedDate');
+
+						//http://stackoverflow.com/questions/2627473/how-to-calculate-the-number-of-days-between-two-dates-using-javascript
+						var oneDay = 24*60*60*1000; // hours*minutes*seconds*milliseconds
+						var diffDays = Math.round(Math.abs((inProgressDate.getTime() - acceptedDate.getTime())/(oneDay)));
+						return diffDays;
+					}
+
+                    return Ext.apply({            	
+                        DaysInProgress: calculateDateDifference(record)
+                    }, record.getData());
+                });
+                this._loadGrid(myStore, records);
               },
               scope: this
           },
           fetch: ['FormattedID', 'Name', 'AcceptedDate', 'InProgressDate', 'RevisionHistory', 'Revisions', 'Description', 'User', 'Project']
       });
-
     },
 
     // Create and Show a Grid of given stories
-    _loadGrid: function(myStoryStore) {
+    _loadGrid: function(myStoryStore, records) {
 
-      var myGrid = Ext.create('Rally.ui.grid.Grid', {
-        store: myStoryStore,
-        //I want this:ID, name, days in progress, in progress date, accepted date
-        columnCfgs: ['FormattedID', 'Name', 'InProgressDate', 'AcceptedDate', { text: 'DaysInProgress', dataIndex: 'DirectChildrenCount' }, 'Project']
-      });
+		var myGrid = Ext.create('Rally.ui.grid.Grid', {
+			//store: myStoryStore,
+			store: Ext.create('Rally.data.custom.Store', {
+			    data: records
+			}),
+			//I want this:ID, name, days in progress, in progress date, accepted date
+			//columnCfgs: ['FormattedID', 'Name', 'InProgressDate', 'AcceptedDate', { text: 'DaysInProgress', dataIndex: 'DirectChildrenCount' }, 'Project']
+			columnCfgs: [{
+			    text: 'FormattedID',
+			    dataIndex: 'FormattedID',
+			}, 
+			{
+			    text: 'Name',
+			    dataIndex: 'Name',
+			},
+			{
+				text: 'InProgressDate',
+				dataIndex: 'InProgressDate',
+			},
+			{
+				text: 'AcceptedDate',
+				dataIndex: 'AcceptedDate',
+			}, 
+			{
+				text: 'DaysInProgress', 
+				dataIndex: 'DaysInProgress'
+			}, 
+			{
+				text: 'Project', 
+				dataIndex: 'Project' //why doesn't this one work?
+			}]
+		});
 
-      this.add(myGrid);
-      console.log('what is this?', this);
- 
+		this.add(myGrid);
+		console.log('what is this?', this); 
     },
 
     _addMultiDateCalendar:function() {
