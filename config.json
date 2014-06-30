@@ -7,6 +7,7 @@
       "App.js"
    ],
    "css": [
-      "app.css"
+      "app.css",
+      "multidate.css"
    ]
 }

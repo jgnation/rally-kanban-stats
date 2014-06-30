@@ -2,52 +2,34 @@
 //YYYY-MM-DDT00:00:00Z
 //	"yyyy-MM-dd hh:mm:ss a", "MM/dd/yyyy hh:mm:ss a", "dd/MM/yyyy hh:mm:ss a", "yyyy/MM/dd hh:mm:ss a", "yyyy-MMM-dd hh:mm:ss a"
 
+Ext.Loader.setConfig({
+    enabled:        true,
+    disableCaching: true,
+    paths: {
+        'Ext.ux':  'ux'
+    }
+});
+
+Ext.require([
+    'Ext.ux.form.field.MultiDate'
+]);
+
 Ext.define('CustomApp', {
     extend: 'Rally.app.App',
     componentCls: 'app',
     items:{ html:'<a href="https://help.rallydev.com/apps/2.0rc3/doc/">App SDK 2.0rc3 Docs</a>'},
     launch: function() {
+
+    	this.excludedDates = new Array();
+
         //Write app code here
         console.log('Our First App woot!');
         this._createDateFields();
-
-      	this.exclusionsStack = new Array();
-
-      	this.exclusionsContainer = Ext.create('Ext.container.Container', {
-      		title: 'Exclusions',
-	        layout: {
-	                //type: 'hbox', // 'horizontal' layout
-	                align: 'stretch'
-	        },
-	        items: [
-	        {
-		        xtype: 'label',
-		        text: 'Exclusions:'
-		    }]
-    	});
-
-    	this.add(this.exclusionsContainer);
-
+		this._addMultiDateCalendar();
     	this._createButtons();
     },
 
     _createButtons: function() {
-	    //create exclusion fields
-		var addExclusionButton = Ext.create('Ext.Container', {
-		    items: [{
-		        xtype: 'rallybutton',
-		        text: 'Add Exclusion',
-		        listeners: {
-	            	click: function(myStore, myData, success) {
-	            		this._createExclusionFields();
-	              	},
-	              	scope: this
-	            },
-		    }],
-		    renderTo: Ext.getBody().dom,
-		    scope: this
-		});
-
 		var getReportButton = Ext.create('Ext.Container', {
 		    items: [{
 		        xtype: 'rallybutton',
@@ -64,7 +46,6 @@ Ext.define('CustomApp', {
 		    renderTo: Ext.getBody().dom,
 		    scope: this
 		});
-		this.add(addExclusionButton);
 		this.add(getReportButton);
     },
 
@@ -103,49 +84,6 @@ Ext.define('CustomApp', {
 		this.add(end);
     },
 
-    _createExclusionFields: function() {
-    	var singleExclusionContainer = Ext.create('Ext.container.Container', {
-	        layout: {
-	                type: 'hbox', // 'horizontal' layout
-	                align: 'stretch'
-	            }
-    	});
-
-		var start = Ext.create('Ext.Container', {
-	    	items: [{
-		        xtype: 'rallydatefield',
-		        fieldLabel: 'Start Date',
-		        value: this.startDate = new Date(),
-		        listeners: {
-					change: function(start, newValue, oldValue, eOpts) {
-						this.startDate = newValue;
-					},
-					scope: this
-	    		}
-	    	}],
-	    	renderTo: Ext.getBody().dom
-	    });
-
-	    var end = Ext.create('Ext.Container', {
-		    items: [{
-		        xtype: 'rallydatefield',
-		        fieldLabel: 'End Date',
-		        value: this.endDate = new Date(),
-		        listeners: {
-					change: function(start, newValue, oldValue, eOpts) {
-						this.endDate = newValue;
-					},
-					scope: this
-	    		}
-		    }],
-	    	renderTo: Ext.getBody().dom
-		});
-		singleExclusionContainer.add(start);
-		singleExclusionContainer.add(end);
-		//this.add(singleExclusionContainer);
-		this.exclusionsContainer.add(singleExclusionContainer);
-    },
-
     _loadData: function(startDate, endDate) {
 
       var myStore = Ext.create('Rally.data.wsapi.Store', {
@@ -176,6 +114,13 @@ Ext.define('CustomApp', {
           listeners: {
               load: function(myStore, myData, success) {
                 console.log('got data!', myStore, myData, success);
+                //can I alter 'myData' and then set that as myStore.data.items?
+                for (var i = 0; i < myData.length; i++) { //use map instead?
+				    var item = myData[i];
+				    item.data.DirectChildrenCount = 1; //I didn't figure out a way to get item.data.DaysInProgress to work
+				    //Do something
+				}
+				myStore.data.items = myData;
                 this._loadGrid(myStore);
               },
               scope: this
@@ -191,14 +136,79 @@ Ext.define('CustomApp', {
       var myGrid = Ext.create('Rally.ui.grid.Grid', {
         store: myStoryStore,
         //I want this:ID, name, days in progress, in progress date, accepted date
-        columnCfgs: [
-          'FormattedID', 'Name', 'InProgressDate', 'AcceptedDate', 'Project'
-        ]
+        columnCfgs: ['FormattedID', 'Name', 'InProgressDate', 'AcceptedDate', { text: 'DaysInProgress', dataIndex: 'DirectChildrenCount' }, 'Project']
       });
 
       this.add(myGrid);
       console.log('what is this?', this);
  
+    },
+
+    _addMultiDateCalendar:function() {
+    	console.log("blah");
+    	//Ext.onReady(function() {
+		    Ext.tip.QuickTipManager.init();
+
+			var store, panel;
+
+			panel = Ext.create('Ext.form.Panel', {
+		       // width:	200,
+		        //height: 200,
+		        
+		        id: 'formPanel',
+		        
+		        layout: 'vbox',
+		        
+		        defaults: {
+		            autoScroll: true,
+		            //bodyPadding: 8,
+					listeners: {
+						specialkey: function(form, event) {
+							if (event.getKey() === event.ENTER) {
+								form.up().down('#validateButton').handler();
+							};
+						}
+					}
+		        },
+		        
+		        //position: 'absolute',
+		        //x:  20,
+		       // y:  20,
+		        
+		        items: [{
+		            xtype: 'multidatefield',
+		            id: 'multiDateField',
+		            allowBlank: false,
+		            multiValue: true,
+		            submitFormat: 'Y-m-d',
+		            submitRangeSeparator: '/',
+		        }, {
+		            xtype: 'button',
+		            id:    'validateButton',
+		            text:  'Validate',
+		            handler: function() {
+		                var form, field;
+		                
+		                form  = Ext.getCmp('formPanel').getForm();
+		                field = Ext.getCmp('multiDateField');
+		                
+		                if ( form.isValid() ) {
+		                    var values = form.getValues();
+		                    var valuesString = field.getSubmitValue();
+		                    var valuesArray = field.expandValues(valuesString, 'Y-m-d', ';', '/');
+		                    alert('Form is valid: ' + Ext.JSON.encode(values[ field.inputId ]));
+		                }
+		                else {
+		                    alert('Form is invalid');
+		                };
+		            }
+		        }],
+		        
+		        renderTo: Ext.getBody()
+			});
+
+			this.add(panel);
+		//});
     }
 });
 
@@ -234,3 +244,24 @@ Ext.define('CustomApp', {
 //every time I press 'Add Exclusion', create a new start field, and a new end field, and a new container
 //Add both of the fields to a container
 //add container to list of containers? or a stack!
+
+
+
+//after hitting 'Get Report':
+//Run a report using the query that is already built
+//a)filter the results that are returned, removing the exclusions
+//b)use filters to remove weekends (this actually won't work because I still need calculate days in progress w/ the exclusions)
+
+
+//filtering exclusions:
+//a) 
+
+
+
+
+//ok, I have an array of exluded values
+//now I want to see if any of the days from the date range of each story overlap with the excluded dates
+
+
+//look at each story returned from the rally api
+//
