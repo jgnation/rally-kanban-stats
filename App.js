@@ -114,6 +114,7 @@ Ext.define('CustomApp', {
           listeners: {
               load: function(myStore, myData, success) {
                 console.log('got data!', myStore, myData, success);
+                var a = this.excludedDates; //this works
 			    var records = _.map(myData, function(record) {
 
 					function calculateDateDifference(record){
@@ -122,14 +123,44 @@ Ext.define('CustomApp', {
 
 						//http://stackoverflow.com/questions/2627473/how-to-calculate-the-number-of-days-between-two-dates-using-javascript
 						var oneDay = 24*60*60*1000; // hours*minutes*seconds*milliseconds
-						var diffDays = Math.round(Math.abs((inProgressDate.getTime() - acceptedDate.getTime())/(oneDay)));
+						//var diffDays = Math.round(Math.abs((inProgressDate.getTime() - acceptedDate.getTime())/(oneDay)));
+						var diffDays = Math.ceil(Math.abs((inProgressDate.getTime() - acceptedDate.getTime())/(oneDay)));
 						return diffDays;
 					}
 
+					function calculateExclusions(record, excludedDates) {
+				  		var field = Ext.getCmp('multiDateField');
+				  		var inProgressDate = record.get('InProgressDate');
+						var acceptedDate = record.get('AcceptedDate');
+
+				        var inProgressDateString = inProgressDate.getFullYear() + '-'
+				        	+ ('0' + (inProgressDate.getMonth()+1)).slice(-2) + '-'
+				        	+ ('0' + inProgressDate.getDate()).slice(-2);
+
+				        var acceptedDateString = acceptedDate.getFullYear() + '-'
+				        	+ ('0' + (acceptedDate.getMonth()+1)).slice(-2) + '-'
+				        	+ ('0' + acceptedDate.getDate()).slice(-2);
+
+
+				        var dateRange = inProgressDateString + "/" + acceptedDateString;
+				        var dateArray = field.expandValues(dateRange, 'Y-m-d', ';', '/');
+
+				        var dateStringArray =  _.map(dateArray, function(date) {
+				        	return date.toString();
+				        });
+
+				        var intersection = _.intersection(dateStringArray, excludedDates); //run intersection in string arrays instead of date arrays
+
+						var exclusions = calculateDateDifference(record) - intersection.length;
+				        return exclusions >= 0 ? exclusions : 0;
+					}
+
                     return Ext.apply({            	
-                        DaysInProgress: calculateDateDifference(record)
+                        DaysInProgress: calculateDateDifference(record, this),
+                        DaysInProgressExclusions: calculateExclusions(record, this.excludedDates)
                     }, record.getData());
-                });
+                }, this);
+
                 this._loadGrid(myStore, records);
               },
               scope: this
@@ -168,6 +199,10 @@ Ext.define('CustomApp', {
 				text: 'DaysInProgress', 
 				dataIndex: 'DaysInProgress'
 			}, 
+			{
+				text: 'DaysInProgress (Exclusions)', 
+				dataIndex: 'DaysInProgressExclusions'
+			},
 			{
 				text: 'Project', 
 				dataIndex: 'Project' //why doesn't this one work?
@@ -220,6 +255,7 @@ Ext.define('CustomApp', {
 		            xtype: 'button',
 		            id:    'validateButton',
 		            text:  'Validate',
+		            scope: this,
 		            handler: function() {
 		                var form, field;
 		                
@@ -230,6 +266,9 @@ Ext.define('CustomApp', {
 		                    var values = form.getValues();
 		                    var valuesString = field.getSubmitValue();
 		                    var valuesArray = field.expandValues(valuesString, 'Y-m-d', ';', '/');
+		                    this.excludedDates =  _.map(valuesArray, function(date) {
+				        		return date.toString();
+				        	});
 		                    alert('Form is valid: ' + Ext.JSON.encode(values[ field.inputId ]));
 		                }
 		                else {
@@ -298,4 +337,8 @@ Ext.define('CustomApp', {
 
 
 //look at each story returned from the rally api
+//
+
+
+//user press getRecords
 //
