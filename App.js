@@ -128,7 +128,8 @@ Ext.define('CustomApp', {
 					value: '0'
 				},
 				{
-					property: 'InProgressDate',
+					//property: 'InProgressDate',
+					property: 'AcceptedDate',
 					operator: '>=',
 					value: startDate
 				},
@@ -273,7 +274,7 @@ Ext.define('CustomApp', {
 			                store.each(function(rec) {
 			                    total += rec.get('data');
 			                });
-			                this.setTitle(storeItem.get('name') + ': ' + Math.round(storeItem.get('data') / total * 100) + '%');
+			                this.setTitle(storeItem.get('name') + ': ' + Math.round(storeItem.get('data') / total * 100) + '%'); 
 			            }
 			        },
 			        highlight: {
@@ -459,7 +460,7 @@ Ext.define('CustomApp', {
     }
 });
 
-//change initial dates to mean only that a story was accepted between start and end date?
+//add an 'exclude weekends' checkbox or something
 //take care of error in chart code
 //add ability to see a chart with exclusions and without.  Switch between them with a radio button.
 //fix switching months on calendar
