@@ -19,6 +19,13 @@ Ext.define('CustomApp', {
 
 		this.excludedDates = [];
 
+
+		this._createContainers();
+        this._createDateFields();
+		this._addMultiDateCalendar();
+    },
+
+    _createContainers: function() {
 		//this container will contain the topLeftContainer and topRightContainer
 		this.topContainer = Ext.create('Ext.container.Container', {
 			title: 'Top',
@@ -56,9 +63,6 @@ Ext.define('CustomApp', {
 			}
 		});
 		this.add(this.bottomContainer);
-
-        this._createDateFields();
-		this._addMultiDateCalendar();
     },
 
     _createDateFields: function() {
@@ -97,11 +101,7 @@ Ext.define('CustomApp', {
 	},
 
 	_loadData: function(startDate, endDate) {
-
-		var myStore = Ext.create('Rally.data.wsapi.Store', {
-			model: 'User Story',
-			autoLoad: true,
-			filters: [
+		var storeFilters = [
 				{
 					property: 'ScheduleState',
 					operation: '=',
@@ -122,64 +122,72 @@ Ext.define('CustomApp', {
 					operator: '<=',
 					value: endDate
 				}
-			],
-			listeners: {
-				load: function(myStore, myData, success) {
-					console.log('got data!', myStore, myData, success);
-					var a = this.excludedDates; //this works
-					var records = _.map(myData, function(record) {
+			];
 
-					function calculateDateDifference(record){
-						var inProgressDate = record.get('InProgressDate');
-						var acceptedDate = record.get('AcceptedDate');
+		if (this.myStore) {
+			this.myStore.setFilter(storeFilters);
+			this.myStore.load();
+		} else {
+			this.myStore = Ext.create('Rally.data.wsapi.Store', {
+				model: 'User Story',
+				autoLoad: true,
+				filters: storeFilters,
+				listeners: {
+					load: function(myStore, myData, success) {
+						var records = _.map(myData, function(record) {
 
-						//http://stackoverflow.com/questions/2627473/how-to-calculate-the-number-of-days-between-two-dates-using-javascript
-						var oneDay = 24*60*60*1000; // hours*minutes*seconds*milliseconds
-						//var diffDays = Math.round(Math.abs((inProgressDate.getTime() - acceptedDate.getTime())/(oneDay)));
-						var diffDays = Math.ceil(Math.abs((inProgressDate.getTime() - acceptedDate.getTime())/(oneDay)));
-						return diffDays;
-					}
+							function calculateDateDifference(record){
+								var inProgressDate = record.get('InProgressDate');
+								var acceptedDate = record.get('AcceptedDate');
 
-					function calculateExclusions(record, excludedDates) {
-				  		var field = Ext.getCmp('multiDateField');
-				  		var inProgressDate = record.get('InProgressDate');
-						var acceptedDate = record.get('AcceptedDate');
+								//http://stackoverflow.com/questions/2627473/how-to-calculate-the-number-of-days-between-two-dates-using-javascript
+								var oneDay = 24*60*60*1000; // hours*minutes*seconds*milliseconds
+								//var diffDays = Math.round(Math.abs((inProgressDate.getTime() - acceptedDate.getTime())/(oneDay)));
+								var diffDays = Math.ceil(Math.abs((inProgressDate.getTime() - acceptedDate.getTime())/(oneDay)));
+								return diffDays;
+							}
 
-				        var inProgressDateString = inProgressDate.getFullYear() + '-'
-				        	+ ('0' + (inProgressDate.getMonth()+1)).slice(-2) + '-'
-				        	+ ('0' + inProgressDate.getDate()).slice(-2);
+							function calculateExclusions(record, excludedDates) {
+						  		var field = Ext.getCmp('multiDateField');
+						  		var inProgressDate = record.get('InProgressDate');
+								var acceptedDate = record.get('AcceptedDate');
 
-				        var acceptedDateString = acceptedDate.getFullYear() + '-'
-				        	+ ('0' + (acceptedDate.getMonth()+1)).slice(-2) + '-'
-				        	+ ('0' + acceptedDate.getDate()).slice(-2);
+						        var inProgressDateString = inProgressDate.getFullYear() + '-'
+						        	+ ('0' + (inProgressDate.getMonth()+1)).slice(-2) + '-'
+						        	+ ('0' + inProgressDate.getDate()).slice(-2);
+
+						        var acceptedDateString = acceptedDate.getFullYear() + '-'
+						        	+ ('0' + (acceptedDate.getMonth()+1)).slice(-2) + '-'
+						        	+ ('0' + acceptedDate.getDate()).slice(-2);
 
 
-				        var dateRange = inProgressDateString + "/" + acceptedDateString;
-				        var dateArray = field.expandValues(dateRange, 'Y-m-d', ';', '/');
+						        var dateRange = inProgressDateString + "/" + acceptedDateString;
+						        var dateArray = field.expandValues(dateRange, 'Y-m-d', ';', '/');
 
-				        var dateStringArray =  _.map(dateArray, function(date) {
-				        	return date.toString();
-				        });
+						        var dateStringArray =  _.map(dateArray, function(date) {
+						        	return date.toString();
+						        });
 
-				        var intersection = _.intersection(dateStringArray, excludedDates); //run intersection in string arrays instead of date arrays
+						        var intersection = _.intersection(dateStringArray, excludedDates); //run intersection in string arrays instead of date arrays
 
-						var exclusions = calculateDateDifference(record) - intersection.length;
-				        return exclusions >= 0 ? exclusions : 0;
-					}
+								var exclusions = calculateDateDifference(record) - intersection.length;
+						        return exclusions >= 0 ? exclusions : 0;
+							}
 
-                    return Ext.apply({            	
-                        DaysInProgress: calculateDateDifference(record, this),
-                        DaysInProgressExclusions: calculateExclusions(record, this.excludedDates)
-                    }, record.getData());
-                }, this);
+		                    return Ext.apply({            	
+		                        DaysInProgress: calculateDateDifference(record, this),
+		                        DaysInProgressExclusions: calculateExclusions(record, this.excludedDates)
+		                    }, record.getData());
+	                	}, this);
 
-                this._loadGrid(myStore, records);
-                this._createChart(records);
-              },
-              scope: this
-          },
-          fetch: ['FormattedID', 'Name', 'AcceptedDate', 'InProgressDate', 'RevisionHistory', 'Revisions', 'Description', 'User', 'Project']
-      });
+	                	this._loadGrid(myStore, records);
+	                	this._createChart(records);
+	              	},
+	              	scope: this
+	          	},
+	          	fetch: ['FormattedID', 'Name', 'AcceptedDate', 'InProgressDate', 'RevisionHistory', 'Revisions', 'Description', 'User', 'Project']
+     	 	});
+		}
     },
 
     _createChart: function(records) {
@@ -216,7 +224,7 @@ Ext.define('CustomApp', {
    			data.push(dict[prop]);
    		}
 
-		var store = Ext.create('Ext.data.JsonStore', {
+		var chartStore = Ext.create('Ext.data.JsonStore', {
 		    fields: ['name', 'data'],
 		    data: data
 		});
@@ -226,7 +234,7 @@ Ext.define('CustomApp', {
 		    width: 500,
 		    height: 350,
 		    animate: true,
-		    store: store,
+		    store: chartStore,
 		    theme: 'Base:gradients',
 		    series: [{
 		        type: 'pie',
@@ -264,45 +272,55 @@ Ext.define('CustomApp', {
     // Create and Show a Grid of given stories
     _loadGrid: function(myStoryStore, records) {
 
-		var myGrid = Ext.create('Rally.ui.grid.Grid', {
-			//store: myStoryStore,
-			store: Ext.create('Rally.data.custom.Store', {
-			    data: records
-			}),
-			//I want this:ID, name, days in progress, in progress date, accepted date
-			//columnCfgs: ['FormattedID', 'Name', 'InProgressDate', 'AcceptedDate', { text: 'DaysInProgress', dataIndex: 'DirectChildrenCount' }, 'Project']
-			columnCfgs: [{
-			    text: 'FormattedID',
-			    dataIndex: 'FormattedID',
-			}, 
-			{
-			    text: 'Name',
-			    dataIndex: 'Name',
-			},
-			{
-				text: 'InProgressDate',
-				dataIndex: 'InProgressDate',
-			},
-			{
-				text: 'AcceptedDate',
-				dataIndex: 'AcceptedDate',
-			}, 
-			{
-				text: 'DaysInProgress', 
-				dataIndex: 'DaysInProgress'
-			}, 
-			{
-				text: 'DaysInProgress (Exclusions)', 
-				dataIndex: 'DaysInProgressExclusions'
-			},
-			{
-				text: 'Project', 
-				dataIndex: 'Project' //why doesn't this one work?
-			}]
-		});
+    	if (this.customGridStore) {
+    		this.customGridStore.loadRawData(records);
+    	} else {
+    		this.customGridStore = Ext.create('Rally.data.custom.Store', {
+				data: records
+			});
 
-		this.bottomContainer.add(myGrid);
-		console.log('what is this?', this); 
+			this.myGrid = Ext.create('Rally.ui.grid.Grid', {
+				//store: myStoryStore,
+				store: this.customGridStore,
+				listeners: {
+					load: function(myStore, myData, success) {
+						console.log("I'm here!");
+					}
+				},
+				//I want this:ID, name, days in progress, in progress date, accepted date
+				//columnCfgs: ['FormattedID', 'Name', 'InProgressDate', 'AcceptedDate', { text: 'DaysInProgress', dataIndex: 'DirectChildrenCount' }, 'Project']
+				columnCfgs: [{
+				    text: 'FormattedID',
+				    dataIndex: 'FormattedID',
+				}, 
+				{
+				    text: 'Name',
+				    dataIndex: 'Name',
+				},
+				{
+					text: 'InProgressDate',
+					dataIndex: 'InProgressDate',
+				},
+				{
+					text: 'AcceptedDate',
+					dataIndex: 'AcceptedDate',
+				}, 
+				{
+					text: 'DaysInProgress', 
+					dataIndex: 'DaysInProgress'
+				}, 
+				{
+					text: 'DaysInProgress (Exclusions)', 
+					dataIndex: 'DaysInProgressExclusions'
+				},
+				{
+					text: 'Project', 
+					dataIndex: 'Project' //why doesn't this one work?
+				}]
+			});
+
+			this.bottomContainer.add(this.myGrid);
+    	}
     },
 
     _addMultiDateCalendar:function() {
@@ -380,6 +398,7 @@ Ext.define('CustomApp', {
 //replace grid
 //fix switching months on calendar
 //change initial dates to mean only that a story was accepted between start and end date?
+//add ability to see a chart with exclusions and without.  Switch between them with a radio button.
 
 
 //https://github.com/nohuhu/Ext.ux.form.field.MultiDate
