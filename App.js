@@ -38,21 +38,41 @@ Ext.define('CustomApp', {
 
 		//this will contain the date fields and get report button
 		this.topLeftContainer = Ext.create('Ext.container.Container', {
-			title: 'Top',
+			title: 'TopLeft',
 			layout: {
 				align: 'stretch'
 			}
 		});
 		this.topContainer.add(this.topLeftContainer);
 
-		//this will contain the chart
-		this.topRightContainer = Ext.create('Ext.container.Container', {
-			title: 'Top',
+		//this will contain the statistics grid
+		this.topCenterContainer = Ext.create('Ext.container.Container', {
+			title: 'TopCenter',
 			layout: {
 				align: 'stretch'
 			}
 		});
+		this.topContainer.add(this.topCenterContainer);
+
+		//this will contain the chart
+		this.topRightContainer = Ext.create('Ext.container.Container', {
+			title: 'TopRight',
+			layout: {
+				align: 'stretch',
+				height: 600
+			}
+		});
 		this.topContainer.add(this.topRightContainer);
+
+		//this will contain the statistics grid
+		this.centerContainer = Ext.create('Ext.container.Container', {
+			title: 'Center',
+			flex: 5,
+			layout: {
+				align: 'stretch'
+			}
+		});
+		this.add(this.centerContainer);
 
 		//this container will contain the grid
 		this.bottomContainer = Ext.create('Ext.container.Container', {
@@ -60,7 +80,8 @@ Ext.define('CustomApp', {
 			layout: {
 				//type: 'hbox', // 'horizontal' layout
 				align: 'stretch'
-			}
+			},
+			flex: 1
 		});
 		this.add(this.bottomContainer);
     },
@@ -239,6 +260,11 @@ Ext.define('CustomApp', {
 			    animate: true,
 			    store: this.chartStore,
 			    theme: 'Base:gradients',
+			    legend: {
+					visible:true,
+					position: 'right',
+					labelFont: '10px Comic Sans MS'
+				},
 			    series: [{
 			        type: 'pie',
 			        angleField: 'data',
@@ -271,6 +297,54 @@ Ext.define('CustomApp', {
 			});
 			this.topRightContainer.add(this.chart);
 		}
+		this._createCenterGrid(data, records);
+    },
+
+    _createCenterGrid: function(data, records) {
+		var totalStories = _.reduce(data, function(sum, el) {
+  			return sum + el.data;
+		}, 0);
+
+		var totalDaysExclusions = _.reduce(records, function(sum, el) {
+  			return sum + el.DaysInProgressExclusions;
+		}, 0);
+
+		//I need to sum the days in progres (exclusions) and divide that by the number of stories
+		var average = totalDaysExclusions / records.length;
+		var averageRounded = Math.round(average * 100) / 100;
+
+		data.push({ name: 'Total Stories Completed', data: totalStories });
+		data.push({ name: 'Average Number of Days In Progress', data: averageRounded });
+
+		if (this.centerGridStore) {
+			this.centerGridStore.loadRawData(data);
+		} else {
+			this.centerGridStore = Ext.create('Rally.data.custom.Store', {
+				fields: ['name', 'data'],
+	    	 	data: data
+	    	});
+
+			this.centerGrid = Ext.create('Rally.ui.grid.Grid', {
+				store: this.centerGridStore,
+				showPagingToolbar: false,
+				listeners: {
+					load: function(myStore, myData, success) {
+						console.log("I'm here!");
+					}
+				},
+				columnCfgs: [{
+				    text: '',
+				    dataIndex: 'name',
+				},
+				{
+					text: '',
+					dataIndex: 'data'
+				}]
+			});
+			//this.topCenterContainer.add(this.centerGrid);
+			this.centerContainer.add(this.centerGrid);
+			//this.topRightContainer.add(this.centerGrid);
+		}
     },
 
     // Create and Show a Grid of given stories
@@ -286,11 +360,6 @@ Ext.define('CustomApp', {
 			this.myGrid = Ext.create('Rally.ui.grid.Grid', {
 				//store: myStoryStore,
 				store: this.customGridStore,
-				listeners: {
-					load: function(myStore, myData, success) {
-						console.log("I'm here!");
-					}
-				},
 				//I want this:ID, name, days in progress, in progress date, accepted date
 				//columnCfgs: ['FormattedID', 'Name', 'InProgressDate', 'AcceptedDate', { text: 'DaysInProgress', dataIndex: 'DirectChildrenCount' }, 'Project']
 				columnCfgs: [{
@@ -400,10 +469,12 @@ Ext.define('CustomApp', {
     }
 });
 
-
+//add a grid with total days spent, average, etc.
+//stretch everything horizontally
 //fix switching months on calendar
 //change initial dates to mean only that a story was accepted between start and end date?
 //add ability to see a chart with exclusions and without.  Switch between them with a radio button.
+//take care of error in chart code
 
 
 //https://github.com/nohuhu/Ext.ux.form.field.MultiDate
