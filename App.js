@@ -19,7 +19,6 @@ Ext.define('CustomApp', {
 
 		this.excludedDates = [];
 
-
 		this._createContainers();
         this._createDateFields();
 		this._addMultiDateCalendar();
@@ -29,6 +28,7 @@ Ext.define('CustomApp', {
 		//this container will contain the topLeftContainer and topRightContainer
 		this.topContainer = Ext.create('Ext.container.Container', {
 			title: 'Top',
+			flex: 1,
 			layout: {
 				type: 'hbox', // 'horizontal' layout
 				align: 'stretch'
@@ -39,7 +39,9 @@ Ext.define('CustomApp', {
 		//this will contain the date fields and get report button
 		this.topLeftContainer = Ext.create('Ext.container.Container', {
 			title: 'TopLeft',
+			flex: .30,
 			layout: {
+				type: 'vbox',
 				align: 'stretch'
 			}
 		});
@@ -48,7 +50,9 @@ Ext.define('CustomApp', {
 		//this will contain the statistics grid
 		this.topCenterContainer = Ext.create('Ext.container.Container', {
 			title: 'TopCenter',
+			flex: .20,
 			layout: {
+				type: 'vbox',
 				align: 'stretch'
 			}
 		});
@@ -57,31 +61,21 @@ Ext.define('CustomApp', {
 		//this will contain the chart
 		this.topRightContainer = Ext.create('Ext.container.Container', {
 			title: 'TopRight',
+			flex: .30,
 			layout: {
-				align: 'stretch',
-				height: 600
+				type: 'vbox',
+				align: 'stretch'
 			}
 		});
 		this.topContainer.add(this.topRightContainer);
 
-		//this will contain the statistics grid
-		this.centerContainer = Ext.create('Ext.container.Container', {
-			title: 'Center',
-			flex: 5,
-			layout: {
-				align: 'stretch'
-			}
-		});
-		this.add(this.centerContainer);
-
 		//this container will contain the grid
 		this.bottomContainer = Ext.create('Ext.container.Container', {
 			title: 'Bottom',
+			flex: 2,
 			layout: {
-				//type: 'hbox', // 'horizontal' layout
 				align: 'stretch'
-			},
-			flex: 1
+			}
 		});
 		this.add(this.bottomContainer);
     },
@@ -262,7 +256,7 @@ Ext.define('CustomApp', {
 			    theme: 'Base:gradients',
 			    legend: {
 					visible:true,
-					position: 'right',
+					position: 'left',
 					labelFont: '10px Comic Sans MS'
 				},
 			    series: [{
@@ -309,7 +303,6 @@ Ext.define('CustomApp', {
   			return sum + el.DaysInProgressExclusions;
 		}, 0);
 
-		//I need to sum the days in progres (exclusions) and divide that by the number of stories
 		var average = totalDaysExclusions / records.length;
 		var averageRounded = Math.round(average * 100) / 100;
 
@@ -341,9 +334,7 @@ Ext.define('CustomApp', {
 					dataIndex: 'data'
 				}]
 			});
-			//this.topCenterContainer.add(this.centerGrid);
-			this.centerContainer.add(this.centerGrid);
-			//this.topRightContainer.add(this.centerGrid);
+			this.topCenterContainer.add(this.centerGrid);
 		}
     },
 
@@ -358,37 +349,36 @@ Ext.define('CustomApp', {
 			});
 
 			this.myGrid = Ext.create('Rally.ui.grid.Grid', {
-				//store: myStoryStore,
 				store: this.customGridStore,
-				//I want this:ID, name, days in progress, in progress date, accepted date
-				//columnCfgs: ['FormattedID', 'Name', 'InProgressDate', 'AcceptedDate', { text: 'DaysInProgress', dataIndex: 'DirectChildrenCount' }, 'Project']
 				columnCfgs: [{
-				    text: 'FormattedID',
+					flex: 1,
+				    text: 'ID',
 				    dataIndex: 'FormattedID',
 				}, 
 				{
+					flex: 1,
 				    text: 'Name',
 				    dataIndex: 'Name',
 				},
 				{
-					text: 'InProgressDate',
-					dataIndex: 'InProgressDate',
+					flex: 1,
+					text: 'Days In Progress', 
+					dataIndex: 'DaysInProgress'
 				},
 				{
-					text: 'AcceptedDate',
-					dataIndex: 'AcceptedDate',
-				}, 
-				{
-					text: 'DaysInProgress', 
-					dataIndex: 'DaysInProgress'
-				}, 
-				{
-					text: 'DaysInProgress (Exclusions)', 
+					flex: 1,
+					text: 'Days In Progress (w/ Exclusions)', 
 					dataIndex: 'DaysInProgressExclusions'
 				},
 				{
-					text: 'Project', 
-					dataIndex: 'Project' //why doesn't this one work?
+					flex: 1,
+					text: 'In Progress Date',
+					dataIndex: 'InProgressDate',
+				},
+				{
+					flex: 1,
+					text: 'Accepted Date',
+					dataIndex: 'AcceptedDate',
 				}]
 			});
 
@@ -469,12 +459,9 @@ Ext.define('CustomApp', {
     }
 });
 
-//add a grid with total days spent, average, etc.
-//stretch everything horizontally
-//fix switching months on calendar
 //change initial dates to mean only that a story was accepted between start and end date?
-//add ability to see a chart with exclusions and without.  Switch between them with a radio button.
 //take care of error in chart code
-
+//add ability to see a chart with exclusions and without.  Switch between them with a radio button.
+//fix switching months on calendar
 
 //https://github.com/nohuhu/Ext.ux.form.field.MultiDate
