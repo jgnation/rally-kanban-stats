@@ -258,7 +258,7 @@ Ext.define('CustomApp', {
 		        }
 		    }]
 		});
-		this.topContainer.add(chart);
+		this.topRightContainer.add(chart);
     },
 
     // Create and Show a Grid of given stories
