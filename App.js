@@ -412,14 +412,28 @@ Ext.define('CustomApp', {
 	        },
 	        
 	        items: [{
-	            xtype: 'multidatefield',
-	            id: 'multiDateField',
-	            fieldLabel: 'Exclusions',
-	            allowBlank: true,
-	            multiValue: true,
-	            submitFormat: 'Y-m-d',
-	            submitRangeSeparator: '/',
-	        }, {
+		            xtype: 'multidatefield',
+		            id: 'multiDateField',
+		            fieldLabel: 'Exclusions',
+		            allowBlank: true,
+		            multiValue: true,
+		            submitFormat: 'Y-m-d',
+		            submitRangeSeparator: '/',
+	        	}, 
+				{
+		            xtype: 'fieldcontainer',
+		            fieldLabel: 'Exclude Weekends',
+		            defaultType: 'checkboxfield',
+		            items: [
+		                {
+		                    name      : 'weekendCheckbox',
+		                    inputValue: '1',
+		                    checked   : true,
+		                    id        : 'weekendCheckbox'
+						}
+		            ]
+		        },
+                {
 	            xtype: 'button',
 	            id:    'validateButton',
 	            text:  'Get Report',
@@ -434,9 +448,44 @@ Ext.define('CustomApp', {
 	                    var values = form.getValues();
 	                    var valuesString = field.getSubmitValue();
 	                    var valuesArray = field.expandValues(valuesString, 'Y-m-d', ';', '/');
+
 	                    this.excludedDates =  _.map(valuesArray, function(date) {
 			        		return date.toString();
 			        	});
+
+
+
+/*
+//This removes weekends
+						var checkboxValue = Ext.getCmp('weekendCheckbox').getValue();
+
+	                    var startDateString = this.startDate.getFullYear() + '-'
+				        	+ ('0' + (this.startDate.getMonth()+1)).slice(-2) + '-'
+				        	+ ('0' + this.startDate.getDate()).slice(-2);
+
+				        var endDateString = this.endDate.getFullYear() + '-'
+				        	+ ('0' + (this.endDate.getMonth()+1)).slice(-2) + '-'
+				        	+ ('0' + this.endDate.getDate()).slice(-2);
+
+				        var dateRange = startDateString + "/" + endDateString;
+						var dateArray = field.expandValues(dateRange, 'Y-m-d', ';', '/');
+			        	//add excluded weekends to this
+			        	//find weekend days between this.startDate and this.endDate
+			        	//add the weekend days to excludedDates.  make sure there are no duplicates.
+			        	//look at calculateExclusions for inspiration
+			        	//use _filter on dateArray 
+			        	var weekendDays = _.filter(dateArray, function(date) {
+			        		var day = date.getDay();
+			        		return day == 0 || day == 6;
+			        	});
+
+			        	var excluded = _.union(valuesArray, weekendDays);
+			        	var excludedStrings = _.map(excluded, function(date) {
+			        		return date.toString();
+			        	});
+			        	this.excludedDates = _.uniq(excludedStrings);
+*/			        	
+
 			        	this._runReport();                    
 	                }
 	                else {
