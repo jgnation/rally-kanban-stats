@@ -224,49 +224,53 @@ Ext.define('CustomApp', {
    			data.push(dict[prop]);
    		}
 
-		var chartStore = Ext.create('Ext.data.JsonStore', {
-		    fields: ['name', 'data'],
-		    data: data
-		});
+   		if (this.chartStore) {
+   			this.chartStore.loadRawData(data);
+   		} else {
+			this.chartStore = Ext.create('Ext.data.JsonStore', {
+			    fields: ['name', 'data'],
+			    data: data
+			});
 
-		var chart = Ext.create('Ext.chart.Chart', {
-		    renderTo: Ext.getBody(),
-		    width: 500,
-		    height: 350,
-		    animate: true,
-		    store: chartStore,
-		    theme: 'Base:gradients',
-		    series: [{
-		        type: 'pie',
-		        angleField: 'data',
-		        showInLegend: true,
-		        tips: {
-		            trackMouse: true,
-		            width: 140,
-		            height: 28,
-		            renderer: function(storeItem, item) {
-		                // calculate and display percentage on hover
-		                var total = 0;
-		                store.each(function(rec) {
-		                    total += rec.get('data');
-		                });
-		                this.setTitle(storeItem.get('name') + ': ' + Math.round(storeItem.get('data') / total * 100) + '%');
-		            }
-		        },
-		        highlight: {
-		            segment: {
-		                margin: 20
-		            }
-		        },
-		        label: {
-		            field: 'name',
-		            display: 'rotate',
-		            contrast: true,
-		            font: '18px Arial'
-		        }
-		    }]
-		});
-		this.topRightContainer.add(chart);
+			this.chart = Ext.create('Ext.chart.Chart', {
+			    renderTo: Ext.getBody(),
+			    width: 500,
+			    height: 350,
+			    animate: true,
+			    store: this.chartStore,
+			    theme: 'Base:gradients',
+			    series: [{
+			        type: 'pie',
+			        angleField: 'data',
+			        showInLegend: true,
+			        tips: {
+			            trackMouse: true,
+			            width: 140,
+			            height: 28,
+			            renderer: function(storeItem, item) {
+			                // calculate and display percentage on hover
+			                var total = 0;
+			                store.each(function(rec) {
+			                    total += rec.get('data');
+			                });
+			                this.setTitle(storeItem.get('name') + ': ' + Math.round(storeItem.get('data') / total * 100) + '%');
+			            }
+			        },
+			        highlight: {
+			            segment: {
+			                margin: 20
+			            }
+			        },
+			        label: {
+			            field: 'name',
+			            display: 'rotate',
+			            contrast: true,
+			            font: '18px Arial'
+			        }
+			    }]
+			});
+			this.topRightContainer.add(this.chart);
+		}
     },
 
     // Create and Show a Grid of given stories
@@ -395,7 +399,6 @@ Ext.define('CustomApp', {
 });
 
 
-//replace grid
 //fix switching months on calendar
 //change initial dates to mean only that a story was accepted between start and end date?
 //add ability to see a chart with exclusions and without.  Switch between them with a radio button.
