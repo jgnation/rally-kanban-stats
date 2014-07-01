@@ -19,6 +19,44 @@ Ext.define('CustomApp', {
 
 		this.excludedDates = [];
 
+		//this container will contain the topLeftContainer and topRightContainer
+		this.topContainer = Ext.create('Ext.container.Container', {
+			title: 'Top',
+			layout: {
+				type: 'hbox', // 'horizontal' layout
+				align: 'stretch'
+			}
+		});
+		this.add(this.topContainer);
+
+		//this will contain the date fields and get report button
+		this.topLeftContainer = Ext.create('Ext.container.Container', {
+			title: 'Top',
+			layout: {
+				align: 'stretch'
+			}
+		});
+		this.topContainer.add(this.topLeftContainer);
+
+		//this will contain the chart
+		this.topRightContainer = Ext.create('Ext.container.Container', {
+			title: 'Top',
+			layout: {
+				align: 'stretch'
+			}
+		});
+		this.topContainer.add(this.topRightContainer);
+
+		//this container will contain the grid
+		this.bottomContainer = Ext.create('Ext.container.Container', {
+			title: 'Bottom',
+			layout: {
+				//type: 'hbox', // 'horizontal' layout
+				align: 'stretch'
+			}
+		});
+		this.add(this.bottomContainer);
+
         this._createDateFields();
 		this._addMultiDateCalendar();
     },
@@ -54,8 +92,8 @@ Ext.define('CustomApp', {
 			renderTo: Ext.getBody().dom
 		});
 
-		this.add(start);
-		this.add(end);
+		this.topLeftContainer.add(start);
+		this.topLeftContainer.add(end);
 	},
 
 	_loadData: function(startDate, endDate) {
@@ -220,7 +258,7 @@ Ext.define('CustomApp', {
 		        }
 		    }]
 		});
-		this.add(chart);
+		this.topContainer.add(chart);
     },
 
     // Create and Show a Grid of given stories
@@ -263,7 +301,7 @@ Ext.define('CustomApp', {
 			}]
 		});
 
-		this.add(myGrid);
+		this.bottomContainer.add(myGrid);
 		console.log('what is this?', this); 
     },
 
@@ -328,7 +366,7 @@ Ext.define('CustomApp', {
 	        renderTo: Ext.getBody()
 		});
 
-		this.add(panel);
+		this.topLeftContainer.add(panel);
     },
 
     _runReport: function() {
