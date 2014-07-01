@@ -355,7 +355,7 @@ Ext.define('CustomApp', {
 	            xtype: 'multidatefield',
 	            id: 'multiDateField',
 	            fieldLabel: 'Exclusions',
-	            allowBlank: false,
+	            allowBlank: true,
 	            multiValue: true,
 	            submitFormat: 'Y-m-d',
 	            submitRangeSeparator: '/',
@@ -380,6 +380,8 @@ Ext.define('CustomApp', {
 			        	this._runReport();                    
 	                }
 	                else {
+	                	console.log("The form is invalid.");
+	                	//alert to the screen?
 	                    this._runReport(); 
 	                };
 	            }
