@@ -163,7 +163,7 @@ Ext.define('CustomApp', {
 								return diffDays;
 							}
 
-							function calculateExclusions(record, excludedDates) {
+							function calculateExclusions(record, context) {
 						  		var field = Ext.getCmp('multiDateField');
 						  		var inProgressDate = record.get('InProgressDate');
 								var acceptedDate = record.get('AcceptedDate');
@@ -180,11 +180,27 @@ Ext.define('CustomApp', {
 						        var dateRange = inProgressDateString + "/" + acceptedDateString;
 						        var dateArray = field.expandValues(dateRange, 'Y-m-d', ';', '/');
 
+						        var excluded;
+				        		if (context.checkboxValue) {
+					        		var weekendDays = _.filter(dateArray, function(date) {
+					        			var day = date.getDay();
+					        			return day == 0 || day == 6;
+					        		});
+
+					        		var weekendDayStrings =  _.map(weekendDays, function(date) {
+							        	return date.toString();
+							        });
+
+							        excluded = _.uniq(_.union(weekendDayStrings, context.excludedDates));
+				        		} else {
+				        			excluded = context.excludedDates;
+				        		}
+
 						        var dateStringArray =  _.map(dateArray, function(date) {
 						        	return date.toString();
 						        });
 
-						        var intersection = _.intersection(dateStringArray, excludedDates); //run intersection in string arrays instead of date arrays
+						        var intersection = _.intersection(dateStringArray, excluded); //run intersection in string arrays instead of date arrays
 
 								var exclusions = calculateDateDifference(record) - intersection.length;
 						        return exclusions >= 0 ? exclusions : 0;
@@ -192,7 +208,7 @@ Ext.define('CustomApp', {
 
 		                    return Ext.apply({            	
 		                        DaysInProgress: calculateDateDifference(record, this),
-		                        DaysInProgressExclusions: calculateExclusions(record, this.excludedDates)
+		                        DaysInProgressExclusions: calculateExclusions(record, this)
 		                    }, record.getData());
 	                	}, this);
 
@@ -449,42 +465,11 @@ Ext.define('CustomApp', {
 	                    var valuesString = field.getSubmitValue();
 	                    var valuesArray = field.expandValues(valuesString, 'Y-m-d', ';', '/');
 
-	                    this.excludedDates =  _.map(valuesArray, function(date) {
-			        		return date.toString();
-			        	});
+						this.checkboxValue = Ext.getCmp('weekendCheckbox').getValue();
 
-
-
-/*
-//This removes weekends
-						var checkboxValue = Ext.getCmp('weekendCheckbox').getValue();
-
-	                    var startDateString = this.startDate.getFullYear() + '-'
-				        	+ ('0' + (this.startDate.getMonth()+1)).slice(-2) + '-'
-				        	+ ('0' + this.startDate.getDate()).slice(-2);
-
-				        var endDateString = this.endDate.getFullYear() + '-'
-				        	+ ('0' + (this.endDate.getMonth()+1)).slice(-2) + '-'
-				        	+ ('0' + this.endDate.getDate()).slice(-2);
-
-				        var dateRange = startDateString + "/" + endDateString;
-						var dateArray = field.expandValues(dateRange, 'Y-m-d', ';', '/');
-			        	//add excluded weekends to this
-			        	//find weekend days between this.startDate and this.endDate
-			        	//add the weekend days to excludedDates.  make sure there are no duplicates.
-			        	//look at calculateExclusions for inspiration
-			        	//use _filter on dateArray 
-			        	var weekendDays = _.filter(dateArray, function(date) {
-			        		var day = date.getDay();
-			        		return day == 0 || day == 6;
-			        	});
-
-			        	var excluded = _.union(valuesArray, weekendDays);
-			        	var excludedStrings = _.map(excluded, function(date) {
-			        		return date.toString();
-			        	});
-			        	this.excludedDates = _.uniq(excludedStrings);
-*/			        	
+		        		this.excludedDates =  _.map(valuesArray, function(date) {
+		        			return date.toString();
+		        		});			        	
 
 			        	this._runReport();                    
 	                }
@@ -509,7 +494,8 @@ Ext.define('CustomApp', {
     }
 });
 
-//add an 'exclude weekends' checkbox or something
+//sort grid results in chronological order
+//take care of case when zero results are returned
 //take care of error in chart code
 //add ability to see a chart with exclusions and without.  Switch between them with a radio button.
 //fix switching months on calendar
