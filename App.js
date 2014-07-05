@@ -22,7 +22,89 @@ Ext.define('CustomApp', {
 		this._createContainers();
         this._createDateFields();
 		this._addMultiDateCalendar();
+
+		//this._testing();
     },
+
+    _testing: function() {
+
+        var start = Ext.create('Ext.Container', {
+            items: [{
+                xtype: 'rallydatefield',
+                fieldLabel: 'Start Date',
+                value: this.startDate = new Date(),
+                listeners: {
+                    change: function(start, newValue, oldValue, eOpts) {
+                        this.startDate = newValue;
+                    },
+                    scope: this
+                }
+            }],
+            renderTo: Ext.getBody().dom
+        });
+        this.add(start);
+
+        var store, panel;
+        //Ext.onReady(function() {
+            Ext.tip.QuickTipManager.init();
+
+            panel = Ext.create('Ext.form.Panel', {
+                    width:    200,
+                    height: 200,
+                    
+                    id: 'formPanel',
+                    
+                    layout: 'vbox',
+                    
+                    defaults: {
+                        autoScroll: true,
+                        bodyPadding: 8,
+                        listeners: {
+                            specialkey: function(form, event) {
+                                if (event.getKey() === event.ENTER) {
+                                    form.up().down('#validateButton').handler();
+                                };
+                            }
+                        }
+                    },
+                    
+                    position: 'absolute',
+                    x: 20,
+                    y: 20,
+                    
+                    items: [{
+                        xtype: 'multidatefield',
+                        id: 'multiDateField',
+                        allowBlank: false,
+                        multiValue: true,
+                        submitFormat: 'Y-m-d',
+                        submitRangeSeparator: '/',
+                    }, {
+                        xtype: 'button',
+                        id: 'validateButton',
+                        text: 'Validate',
+                        handler: function() {
+                            var form, field;
+                            
+                            form = Ext.getCmp('formPanel').getForm();
+                            field = Ext.getCmp('multiDateField');
+                            
+                            if ( form.isValid() ) {
+                                var values = form.getValues();
+                                alert('Form is valid: ' + Ext.JSON.encode(values[ field.inputId ]));
+                            }
+                            else {
+                                alert('Form is invalid');
+                            };
+                        }
+                    }],
+                    
+                    renderTo: Ext.getBody()
+            });
+            this.add(panel);
+        //});
+    },
+
 
     _createContainers: function() {
 		//this container will contain the topLeftContainer and topRightContainer

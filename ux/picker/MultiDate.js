@@ -22,9 +22,12 @@ Ext.define('Ext.ux.picker.MultiDate', {
     renderTpl: [
         '<div class="{cls}" id="{id}-innerEl" role="grid">',
             '<div role="presentation" class="{baseCls}-header">',
-                '<div class="{baseCls}-prev"><a id="{id}-prevEl" href="#" role="button" title="{prevText}"></a></div>',
+                //'<div class="{baseCls}-prev"><a id="{id}-prevEl" href="#" role="button" title="{prevText}"></a></div>',
+                '<a id="{id}-prevEl" class="{baseCls}-prev {baseCls}-arrow" href="#" role="button" title="{prevText}" hidefocus="on" ></a>',
                 '<div class="{baseCls}-month" id="{id}-middleBtnEl">{%this.renderMonthBtn(values, out)%}</div>',
-                '<div class="{baseCls}-next"><a id="{id}-nextEl" href="#" role="button" title="{nextText}"></a></div>',
+               // '<div class="{baseCls}-next"><a id="{id}-nextEl" href="#" role="button" title="{nextText}"></a></div>',
+                '<a id="{id}-nextEl" class="{baseCls}-next {baseCls}-arrow" href="#" role="button" title="{nextText}" hidefocus="on" ></a>',
+
             '</div>',
             '<table id="{id}-eventEl" class="u{baseCls}-inner" cellspacing="0" role="presentation">',
                 '<thead role="presentation"><tr role="presentation">',
@@ -230,7 +233,8 @@ Ext.define('Ext.ux.picker.MultiDate', {
                     :                      [ getClearTime(values) ]
                     ;
         
-        me.update(me.selDates);
+        //me.update(me.selDates);
+        me.update(values);
     },
     
     /**
