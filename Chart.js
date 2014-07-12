@@ -35,7 +35,7 @@ Ext.define('Chart', {
 
         return data;
     },
-    
+
     _create: function(App){
         return Ext.create('Ext.chart.Chart', {
                 renderTo: Ext.getBody(),
@@ -47,7 +47,7 @@ Ext.define('Chart', {
                 legend: {
                     visible:true,
                     position: 'left',
-                    labelFont: '10px Comic Sans MS'
+                    labelFont: '12px Arial'
                 },
                 series: [{
                     type: 'pie',
@@ -75,7 +75,7 @@ Ext.define('Chart', {
                         field: 'name',
                         display: 'rotate',
                         contrast: true,
-                        font: '18px Arial'
+                        font: '12px Arial'
                     }
                 }]
             });

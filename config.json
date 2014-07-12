@@ -9,7 +9,7 @@
       "Chart.js",
       "MainGrid.js",
       "MainStore.js",
-      "MultiDateCalendar.js",
+      "MultiDateCalendarPanel.js",
       "ux/form/field/MultiDate.js",
       "ux/form/field/MultiMonth.js",
       "ux/form/field/MultiTime.js",

@@ -1,8 +1,15 @@
-Ext.define('MultiDateCalendar', {
+Ext.require([
+    'Ext.ux.form.field.MultiDate'
+]);
+
+Ext.define('MultiDateCalendarPanel', {
     _create: function(App){
         Ext.tip.QuickTipManager.init();
         var store;
 
+        /*
+         *  Creates a panel with a multi date calendar, an 'exclude weekends' checkbox, and a 'Get Report' button
+         */
         return Ext.create('Ext.form.Panel', {           
             id: 'formPanel',
             

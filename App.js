@@ -7,10 +7,6 @@ Ext.Loader.setConfig({
     }
 });
 
-Ext.require([
-    'Ext.ux.form.field.MultiDate'
-]);
-
 Ext.define('CustomApp', {
     extend: 'Rally.app.App',
     componentCls: 'app',
@@ -19,12 +15,15 @@ Ext.define('CustomApp', {
 
 		this.excludedDates = [];
 
+		//create initial widgits
 		this._createContainers();
         this._createDateFields();
-		this._addMultiDateCalendar();
-
+		this._createMultiDateCalendar();
     },
 
+    /*
+     * Establish the layout of the screen
+     */
     _createContainers: function() {
 		//this container will contain the topLeftContainer and topRightContainer
 		this.topContainer = Ext.create('Ext.container.Container', {
@@ -116,6 +115,25 @@ Ext.define('CustomApp', {
 		this.topLeftContainer.add(end);
 	},
 
+	_createMultiDateCalendar:function() {
+    	var calendar = Ext.create('MultiDateCalendarPanel');
+    	var panel = calendar._create(this);
+
+		this.topLeftContainer.add(panel);
+    },
+
+    /*
+     * Called by the 'Get Report' button handler (see MultiDateCalendarPanel.js)
+     */
+    _runReport: function() {
+	    var sDate = Rally.util.DateTime.toIsoString(this.startDate);
+		var eDate = Rally.util.DateTime.toIsoString(this.endDate);
+		this._loadData(sDate, eDate);
+    },
+
+    /*
+     * Query the Rally wsapi
+     */
 	_loadData: function(startDate, endDate) {
 		var storeFilters = [
 				{
@@ -150,6 +168,28 @@ Ext.define('CustomApp', {
 		}
     },
 
+    /*
+     * Called when the query to the Rally wsapi returns (see MainStore.js)
+     */
+    _loadGrid: function(myStoryStore, records) {
+
+    	if (this.customGridStore) {
+    		this.customGridStore.loadRawData(records);
+    	} else {
+    		this.customGridStore = Ext.create('Rally.data.custom.Store', {
+				data: records
+			});
+
+			var mainGrid = Ext.create('MainGrid');
+			this.myGrid = mainGrid._create(this);
+
+			this.bottomContainer.add(this.myGrid);
+    	}
+    },
+
+    /*
+     * Called when the query to the Rally wsapi returns (see MainStore.js)
+     */
     _createChart: function(records) {
     	var chart = Ext.create('Chart');
 
@@ -170,6 +210,9 @@ Ext.define('CustomApp', {
 		this._createCenterGrid(data, records);
     },
 
+    /*
+     * Creates a grid to accompany the chart (see this._createChart())
+     */
     _createCenterGrid: function(data, records) {
 	    var centerGrid = Ext.create('CenterGrid');
 		centerGrid._addTotalStories(data);
@@ -187,49 +230,18 @@ Ext.define('CustomApp', {
 			this.centerGrid = centerGrid._create(this);
 			this.topCenterContainer.add(this.centerGrid);
 		}
-    },
-
-    // Create and Show a Grid of given stories
-    _loadGrid: function(myStoryStore, records) {
-
-    	if (this.customGridStore) {
-    		this.customGridStore.loadRawData(records);
-    	} else {
-    		this.customGridStore = Ext.create('Rally.data.custom.Store', {
-				data: records
-			});
-
-			var mainGrid = Ext.create('MainGrid');
-			this.myGrid = mainGrid._create(this);
-
-			this.bottomContainer.add(this.myGrid);
-    	}
-    },
-
-    _addMultiDateCalendar:function() {
-    	var calendar = Ext.create('MultiDateCalendar');
-    	var panel = calendar._create(this);
-
-		this.topLeftContainer.add(panel);
-    },
-
-    _runReport: function() {
-	    var sDate = Rally.util.DateTime.toIsoString(this.startDate);
-		var eDate = Rally.util.DateTime.toIsoString(this.endDate);
-		this._loadData(sDate, eDate);
     }
 });
 
-//sort grid results in chronological order
-//take care of case when zero results are returned
-//take care of error in chart code
-//add ability to see a chart with exclusions and without.  Switch between them with a radio button.
-//fix switching months on calendar
-
-//https://github.com/nohuhu/Ext.ux.form.field.MultiDate
-
-
-//split into separate files:
-//http://stackoverflow.com/questions/20617913/how-to-break-up-a-custom-app-into-multiple-js-files
-
-//pass callbacks into other files
+/*
+TODO:
+-----
+-add links to story in main grid
+-fix jumpy chart
+-sort grid results in chronological order
+-take care of case when zero results are returned
+-add ability to see a chart with exclusions and without.  Switch between them with a radio button.
+-fix switching months on calendar
+-fix multidate calendar error by extending the object rather than editing the code
+-https://github.com/nohuhu/Ext.ux.form.field.MultiDate
+*/
