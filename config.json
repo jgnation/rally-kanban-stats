@@ -5,6 +5,7 @@
    "sdk": "2.0rc3",
    "javascript": [
       "App.js",
+      "MainStore.js",
       "ux/form/field/MultiDate.js",
       "ux/form/field/MultiMonth.js",
       "ux/form/field/MultiTime.js",
