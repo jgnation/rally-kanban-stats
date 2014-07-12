@@ -146,43 +146,14 @@ Ext.define('CustomApp', {
 			this.myStore.load();
 		} else {
 			var store = Ext.create('MainStore');
-    		this.myStore = store._createStore(this, storeFilters);			
+    		this.myStore = store._create(this, storeFilters);			
 		}
     },
 
     _createChart: function(records) {
-		var dict = {};
-   		for (var i = 0; i < records.length; i++) {
-   			var exclusions = records[i].DaysInProgressExclusions
+    	var chart = Ext.create('Chart');
 
-   			var m = 1;
-   			while (m < 100) {
-   				var multiple = 5 * m;
-   				if (exclusions <= multiple) {
-   					var begin;
-   					if (multiple == 5) begin = 0;
-   					else begin = multiple - 4;
-
-   					var name = 'Stories ' + begin + ' to ' + multiple;
-   					if (dict[multiple] == undefined) {
-   						dict[multiple] = { 'name': name, 'data': 1 };
-   					} else {
-   						var obj = dict[multiple];
-   						obj.data = obj.data + 1;
-   					}
-   					break;
-   				}
-   				if (m == 100) {
-   					//TODO
-   				}
-   				m++;
-   			}
-   		}
-
-   		var data = [];
-   		for (var prop in dict) {
-   			data.push(dict[prop]);
-   		}
+   		var data = chart._recordsToChartData(records);
 
    		if (this.chartStore) {
    			this.chartStore.loadRawData(data);
@@ -192,67 +163,18 @@ Ext.define('CustomApp', {
 			    data: data
 			});
 
-			this.chart = Ext.create('Ext.chart.Chart', {
-			    renderTo: Ext.getBody(),
-			    width: 500,
-			    height: 350,
-			    animate: true,
-			    store: this.chartStore,
-			    theme: 'Base:gradients',
-			    legend: {
-					visible:true,
-					position: 'left',
-					labelFont: '10px Comic Sans MS'
-				},
-			    series: [{
-			        type: 'pie',
-			        angleField: 'data',
-			        showInLegend: true,
-			        tips: {
-			            trackMouse: true,
-			            width: 140,
-			            height: 28,
-			            renderer: function(storeItem, item) {
-			                // calculate and display percentage on hover
-			                var total = 0;
-			                store.each(function(rec) {
-			                    total += rec.get('data');
-			                });
-			                this.setTitle(storeItem.get('name') + ': ' + Math.round(storeItem.get('data') / total * 100) + '%'); 
-			            }
-			        },
-			        highlight: {
-			            segment: {
-			                margin: 20
-			            }
-			        },
-			        label: {
-			            field: 'name',
-			            display: 'rotate',
-			            contrast: true,
-			            font: '18px Arial'
-			        }
-			    }]
-			});
+    		this.chart = chart._create(this);
+			
 			this.topRightContainer.add(this.chart);
 		}
 		this._createCenterGrid(data, records);
     },
 
     _createCenterGrid: function(data, records) {
-		var totalStories = _.reduce(data, function(sum, el) {
-  			return sum + el.data;
-		}, 0);
+	    var centerGrid = Ext.create('CenterGrid');
+		centerGrid._addTotalStories(data);
+		centerGrid._addAverageDays(data, records);
 
-		var totalDaysExclusions = _.reduce(records, function(sum, el) {
-  			return sum + el.DaysInProgressExclusions;
-		}, 0);
-
-		var average = totalDaysExclusions / records.length;
-		var averageRounded = Math.round(average * 100) / 100;
-
-		data.push({ name: 'Total Stories Completed', data: totalStories });
-		data.push({ name: 'Average Number of Days In Progress', data: averageRounded });
 
 		if (this.centerGridStore) {
 			this.centerGridStore.loadRawData(data);
@@ -262,23 +184,7 @@ Ext.define('CustomApp', {
 	    	 	data: data
 	    	});
 
-			this.centerGrid = Ext.create('Rally.ui.grid.Grid', {
-				store: this.centerGridStore,
-				showPagingToolbar: false,
-				listeners: {
-					load: function(myStore, myData, success) {
-						console.log("I'm here!");
-					}
-				},
-				columnCfgs: [{
-				    text: '',
-				    dataIndex: 'name',
-				},
-				{
-					text: '',
-					dataIndex: 'data'
-				}]
-			});
+			this.centerGrid = centerGrid._create(this);
 			this.topCenterContainer.add(this.centerGrid);
 		}
     },
@@ -293,39 +199,8 @@ Ext.define('CustomApp', {
 				data: records
 			});
 
-			this.myGrid = Ext.create('Rally.ui.grid.Grid', {
-				store: this.customGridStore,
-				columnCfgs: [{
-					flex: 1,
-				    text: 'ID',
-				    dataIndex: 'FormattedID',
-				}, 
-				{
-					flex: 1,
-				    text: 'Name',
-				    dataIndex: 'Name',
-				},
-				{
-					flex: 1,
-					text: 'Days In Progress', 
-					dataIndex: 'DaysInProgress'
-				},
-				{
-					flex: 1,
-					text: 'Days In Progress (w/ Exclusions)', 
-					dataIndex: 'DaysInProgressExclusions'
-				},
-				{
-					flex: 1,
-					text: 'In Progress Date',
-					dataIndex: 'InProgressDate',
-				},
-				{
-					flex: 1,
-					text: 'Accepted Date',
-					dataIndex: 'AcceptedDate',
-				}]
-			});
+			var mainGrid = Ext.create('MainGrid');
+			this.myGrid = mainGrid._create(this);
 
 			this.bottomContainer.add(this.myGrid);
     	}

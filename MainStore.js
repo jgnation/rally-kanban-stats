@@ -1,5 +1,5 @@
 Ext.define('MainStore', {
-    _createStore: function(App, storeFilters){
+    _create: function(App, storeFilters){
         return Ext.create('Rally.data.wsapi.Store', {
                 model: 'User Story',
                 autoLoad: true,
@@ -63,7 +63,7 @@ Ext.define('MainStore', {
                             }
 
                             return Ext.apply({              
-                                DaysInProgress: calculateDateDifference(record, App),
+                                DaysInProgress: calculateDateDifference(record),
                                 DaysInProgressExclusions: calculateExclusions(record, App)
                             }, record.getData());
                         }, App);

@@ -5,6 +5,9 @@
    "sdk": "2.0rc3",
    "javascript": [
       "App.js",
+      "CenterGrid.js",
+      "Chart.js",
+      "MainGrid.js",
       "MainStore.js",
       "MultiDateCalendar.js",
       "ux/form/field/MultiDate.js",
