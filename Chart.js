@@ -1,30 +1,27 @@
 Ext.define('Chart', {
     _recordsToChartData: function(records) {
+        //TODO: this method is extremely ugly.  Maybe there is a nice functional way to do it?
         var dict = {};
         for (var i = 0; i < records.length; i++) {
             var exclusions = records[i].DaysInProgressExclusions
 
             var m = 1;
-            while (m < 100) {
+            var MAX = 20;   //as the function is written, this should be a multiple of 5
+            while (m * 5 <= MAX) {
                 var multiple = 5 * m;
                 if (exclusions <= multiple) {
-                    var begin;
-                    if (multiple == 5) begin = 0;
-                    else begin = multiple - 4;
+                    var begin = (multiple == 5) ? 0 : multiple - 4;
 
                     var name = 'Stories ' + begin + ' to ' + multiple;
-                    if (dict[multiple] == undefined) {
-                        dict[multiple] = { 'name': name, 'data': 1 };
-                    } else {
-                        var obj = dict[multiple];
-                        obj.data = obj.data + 1;
-                    }
+                    this._populateDictionary(dict, multiple, name);
                     break;
                 }
-                if (m == 100) {
-                    //TODO
-                }
                 m++;
+            }
+            if (m * 5 > MAX) {
+                var name = 'More than ' + MAX;
+                var index = MAX + 1;    //ensure this is the largest key in the dictionary
+                this._populateDictionary(dict, index, name);
             }
         }
 
@@ -33,7 +30,17 @@ Ext.define('Chart', {
             data.push(dict[prop]);
         }
 
+        //TODO: data may have to be sorted...for over the object properties may not be in any guaranteed order?
         return data;
+    },
+
+    _populateDictionary: function(dict, index, name) {
+        if (dict[index] == undefined) {
+            dict[index] = { 'name': name, 'data': 1 };
+        } else {
+            var obj = dict[index];
+            obj.data++;
+        }
     },
 
     _create: function(App){

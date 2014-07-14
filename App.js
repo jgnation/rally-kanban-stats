@@ -238,6 +238,7 @@ TODO:
 -----
 -add links to story in main grid
 -fix jumpy chart
+-prefix 'private' methods with an underscore, public without
 -sort grid results in chronological order
 -take care of case when zero results are returned
 -add ability to see a chart with exclusions and without.  Switch between them with a radio button.
