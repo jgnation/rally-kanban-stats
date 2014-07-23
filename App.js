@@ -177,6 +177,7 @@ Ext.define('CustomApp', {
     		this.customGridStore.loadRawData(records);
     	} else {
     		this.customGridStore = Ext.create('Rally.data.custom.Store', {
+    			fields: ['FormattedID', 'Name', 'DaysInProgress', 'DaysInProgressExclusions', 'InProgressDate', 'AcceptedDate'],
 				data: records
 			});
 
@@ -246,10 +247,8 @@ TODO:
 -add links to story in main grid
 -fix jumpy chart
 -prefix 'private' methods with an underscore, public without
--sort grid results in chronological order
--take care of case when zero results are returned
+-sort grid results?
 -add ability to see a chart with exclusions and without.  Switch between them with a radio button.
--fix switching months on calendar
 -fix multidate calendar error by extending the object rather than editing the code
 -https://github.com/nohuhu/Ext.ux.form.field.MultiDate
 */
