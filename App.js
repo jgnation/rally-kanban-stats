@@ -207,6 +207,10 @@ Ext.define('CustomApp', {
 			
 			this.topRightContainer.add(this.chart);
 		}
+
+	   	if (records.length > 0)	this.topRightContainer.setVisible(true);
+		else this.topRightContainer.setVisible(false);
+
 		this._createCenterGrid(data, records);
     },
 
@@ -230,6 +234,9 @@ Ext.define('CustomApp', {
 			this.centerGrid = centerGrid._create(this);
 			this.topCenterContainer.add(this.centerGrid);
 		}
+
+		if (records.length > 0)	this.topCenterContainer.setVisible(true);
+		else this.topCenterContainer.setVisible(false);
     }
 });
 
