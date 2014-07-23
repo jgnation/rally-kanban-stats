@@ -3,7 +3,7 @@
 <head>
     <title>exclusions</title>
 
-    <script type="text/javascript" src="/apps/2.0rc3/sdk.js"></script>
+    <script type="text/javascript" src="https://rally1.rallydev.com/apps/2.0rc3/sdk.js"></script>
 
     <script type="text/javascript">
         Rally.onReady(function () {
@@ -16,44 +16,78 @@ Ext.Loader.setConfig({
     }
 });
 
-Ext.require([
-    'Ext.ux.form.field.MultiDate'
-]);
-
 Ext.define('CustomApp', {
     extend: 'Rally.app.App',
     componentCls: 'app',
     items:{ html:'<a href="https://help.rallydev.com/apps/2.0rc3/doc/">App SDK 2.0rc3 Docs</a>'},
     launch: function() {
 
-	this.excludedDates = [];
+		this.excludedDates = [];
 
-        //Write app code here
-        console.log('Our First App woot!');
+		//create initial widgits
+		this._createContainers();
         this._createDateFields();
-		this._addMultiDateCalendar();
-		this._createButtons();
+		this._createMultiDateCalendar();
     },
 
-    _createButtons: function() {
-		var getReportButton = Ext.create('Ext.Container', {
-			items: [{
-				xtype: 'rallybutton',
-				text: 'Get Report',
-				listeners: {
-					click: function(myStore, myData, success) {
-						var sDate = Rally.util.DateTime.toIsoString(this.startDate);
-						var eDate = Rally.util.DateTime.toIsoString(this.endDate);
-						this._loadData(sDate, eDate);
-					},
-				scope: this
-				}
-			}],
-			renderTo: Ext.getBody().dom,
-			scope: this
+    /*
+     * Establish the layout of the screen
+     */
+    _createContainers: function() {
+		//this container will contain the topLeftContainer and topRightContainer
+		this.topContainer = Ext.create('Ext.container.Container', {
+			title: 'Top',
+			flex: 1,
+			layout: {
+				type: 'hbox', // 'horizontal' layout
+				align: 'stretch'
+			}
 		});
-		this.add(getReportButton);
-	},
+		this.add(this.topContainer);
+
+		//this will contain the date fields and get report button
+		this.topLeftContainer = Ext.create('Ext.container.Container', {
+			title: 'TopLeft',
+			flex: .30,
+			layout: {
+				type: 'vbox',
+				align: 'stretch'
+			}
+		});
+		this.topContainer.add(this.topLeftContainer);
+
+		//this will contain the statistics grid
+		this.topCenterContainer = Ext.create('Ext.container.Container', {
+			title: 'TopCenter',
+			flex: .20,
+			layout: {
+				type: 'vbox',
+				align: 'stretch'
+			}
+		});
+		this.topContainer.add(this.topCenterContainer);
+
+		//this will contain the chart
+		this.topRightContainer = Ext.create('Ext.container.Container', {
+			title: 'TopRight',
+			flex: .30,
+			layout: {
+				type: 'vbox',
+				align: 'stretch'
+			}
+		});
+		this.topContainer.add(this.topRightContainer);
+
+		//this container will contain the grid
+		this.bottomContainer = Ext.create('Ext.container.Container', {
+			title: 'Bottom',
+			flex: 2,
+			layout: {
+				align: 'stretch'
+			}
+		});
+		this.add(this.bottomContainer);
+    },
 
     _createDateFields: function() {
 		var start = Ext.create('Ext.Container', {
@@ -86,16 +120,31 @@ Ext.define('CustomApp', {
 			renderTo: Ext.getBody().dom
 		});
 
-		this.add(start);
-		this.add(end);
+		this.topLeftContainer.add(start);
+		this.topLeftContainer.add(end);
 	},
 
-	_loadData: function(startDate, endDate) {
+	_createMultiDateCalendar:function() {
+    	var calendar = Ext.create('MultiDateCalendarPanel');
+    	var panel = calendar._create(this);
 
-		var myStore = Ext.create('Rally.data.wsapi.Store', {
-			model: 'User Story',
-			autoLoad: true,
-			filters: [
+		this.topLeftContainer.add(panel);
+    },
+
+    /*
+     * Called by the 'Get Report' button handler (see MultiDateCalendarPanel.js)
+     */
+    _runReport: function() {
+	    var sDate = Rally.util.DateTime.toIsoString(this.startDate);
+		var eDate = Rally.util.DateTime.toIsoString(this.endDate);
+		this._loadData(sDate, eDate);
+    },
+
+    /*
+     * Query the Rally wsapi
+     */
+	_loadData: function(startDate, endDate) {
+		var storeFilters = [
 				{
 					property: 'ScheduleState',
 					operation: '=',
@@ -107,7 +156,8 @@ Ext.define('CustomApp', {
 					value: '0'
 				},
 				{
-					property: 'InProgressDate',
+					//property: 'InProgressDate',
+					property: 'AcceptedDate',
 					operator: '>=',
 					value: startDate
 				},
@@ -116,184 +166,889 @@ Ext.define('CustomApp', {
 					operator: '<=',
 					value: endDate
 				}
-			],
-			listeners: {
-				load: function(myStore, myData, success) {
-					console.log('got data!', myStore, myData, success);
-					var a = this.excludedDates; //this works
-					var records = _.map(myData, function(record) {
+			];
 
-					function calculateDateDifference(record){
-						var inProgressDate = record.get('InProgressDate');
-						var acceptedDate = record.get('AcceptedDate');
-
-						//http://stackoverflow.com/questions/2627473/how-to-calculate-the-number-of-days-between-two-dates-using-javascript
-						var oneDay = 24*60*60*1000; // hours*minutes*seconds*milliseconds
-						//var diffDays = Math.round(Math.abs((inProgressDate.getTime() - acceptedDate.getTime())/(oneDay)));
-						var diffDays = Math.ceil(Math.abs((inProgressDate.getTime() - acceptedDate.getTime())/(oneDay)));
-						return diffDays;
-					}
-
-					function calculateExclusions(record, excludedDates) {
-				  		var field = Ext.getCmp('multiDateField');
-				  		var inProgressDate = record.get('InProgressDate');
-						var acceptedDate = record.get('AcceptedDate');
-
-				        var inProgressDateString = inProgressDate.getFullYear() + '-'
-				        	+ ('0' + (inProgressDate.getMonth()+1)).slice(-2) + '-'
-				        	+ ('0' + inProgressDate.getDate()).slice(-2);
-
-				        var acceptedDateString = acceptedDate.getFullYear() + '-'
-				        	+ ('0' + (acceptedDate.getMonth()+1)).slice(-2) + '-'
-				        	+ ('0' + acceptedDate.getDate()).slice(-2);
-
-
-				        var dateRange = inProgressDateString + "/" + acceptedDateString;
-				        var dateArray = field.expandValues(dateRange, 'Y-m-d', ';', '/');
-
-				        var dateStringArray =  _.map(dateArray, function(date) {
-				        	return date.toString();
-				        });
-
-				        var intersection = _.intersection(dateStringArray, excludedDates); //run intersection in string arrays instead of date arrays
-
-						var exclusions = calculateDateDifference(record) - intersection.length;
-				        return exclusions >= 0 ? exclusions : 0;
-					}
-
-                    return Ext.apply({            	
-                        DaysInProgress: calculateDateDifference(record, this),
-                        DaysInProgressExclusions: calculateExclusions(record, this.excludedDates)
-                    }, record.getData());
-                }, this);
-
-                this._loadGrid(myStore, records);
-              },
-              scope: this
-          },
-          fetch: ['FormattedID', 'Name', 'AcceptedDate', 'InProgressDate', 'RevisionHistory', 'Revisions', 'Description', 'User', 'Project']
-      });
+		if (this.myStore) {
+			this.myStore.setFilter(storeFilters);
+			this.myStore.load();
+		} else {
+			var store = Ext.create('MainStore');
+    		this.myStore = store._create(this, storeFilters);			
+		}
     },
 
-    // Create and Show a Grid of given stories
+    /*
+     * Called when the query to the Rally wsapi returns (see MainStore.js)
+     */
     _loadGrid: function(myStoryStore, records) {
 
-		var myGrid = Ext.create('Rally.ui.grid.Grid', {
-			//store: myStoryStore,
-			store: Ext.create('Rally.data.custom.Store', {
-			    data: records
-			}),
-			//I want this:ID, name, days in progress, in progress date, accepted date
-			//columnCfgs: ['FormattedID', 'Name', 'InProgressDate', 'AcceptedDate', { text: 'DaysInProgress', dataIndex: 'DirectChildrenCount' }, 'Project']
-			columnCfgs: [{
-			    text: 'FormattedID',
-			    dataIndex: 'FormattedID',
-			}, 
-			{
-			    text: 'Name',
-			    dataIndex: 'Name',
-			},
-			{
-				text: 'InProgressDate',
-				dataIndex: 'InProgressDate',
-			},
-			{
-				text: 'AcceptedDate',
-				dataIndex: 'AcceptedDate',
-			}, 
-			{
-				text: 'DaysInProgress', 
-				dataIndex: 'DaysInProgress'
-			}, 
-			{
-				text: 'DaysInProgress (Exclusions)', 
-				dataIndex: 'DaysInProgressExclusions'
-			},
-			{
-				text: 'Project', 
-				dataIndex: 'Project' //why doesn't this one work?
-			}]
-		});
-
-		this.add(myGrid);
-		console.log('what is this?', this); 
-    },
-
-    _addMultiDateCalendar:function() {
-    	console.log("blah");
-    	//Ext.onReady(function() {
-		    Ext.tip.QuickTipManager.init();
-
-			var store, panel;
-
-			panel = Ext.create('Ext.form.Panel', {
-		        width:	200,
-		        height: 200,
-		        
-		        id: 'formPanel',
-		        
-		        layout: 'vbox',
-		        
-		        defaults: {
-		            autoScroll: true,
-		            bodyPadding: 8,
-					listeners: {
-						specialkey: function(form, event) {
-							if (event.getKey() === event.ENTER) {
-								form.up().down('#validateButton').handler();
-							};
-						}
-					}
-		        },
-		        
-		        position: 'absolute',
-		        x:  20,
-		        y:  20,
-		        
-		        items: [{
-		            xtype: 'multidatefield',
-		            id: 'multiDateField',
-		            allowBlank: false,
-		            multiValue: true,
-		            submitFormat: 'Y-m-d',
-		            submitRangeSeparator: '/',
-		        }, {
-		            xtype: 'button',
-		            id:    'validateButton',
-		            text:  'Validate',
-		            scope: this,
-		            handler: function() {
-		                var form, field;
-		                
-		                form  = Ext.getCmp('formPanel').getForm();
-		                field = Ext.getCmp('multiDateField');
-		                
-		                if ( form.isValid() ) {
-		                    var values = form.getValues();
-		                    var valuesString = field.getSubmitValue();
-		                    var valuesArray = field.expandValues(valuesString, 'Y-m-d', ';', '/');
-		                    this.excludedDates =  _.map(valuesArray, function(date) {
-				        		return date.toString();
-				        	});
-		                    alert('Form is valid: ' + Ext.JSON.encode(values[ field.inputId ]));
-		                }
-		                else {
-		                    alert('Form is invalid');
-		                };
-		            }
-		        }],
-		        
-		        renderTo: Ext.getBody()
+    	if (this.customGridStore) {
+    		this.customGridStore.loadRawData(records);
+    	} else {
+    		this.customGridStore = Ext.create('Rally.data.custom.Store', {
+				data: records
 			});
 
-			this.add(panel);
-		//});
+			var mainGrid = Ext.create('MainGrid');
+			this.myGrid = mainGrid._create(this);
+
+			this.bottomContainer.add(this.myGrid);
+    	}
+    },
+
+    /*
+     * Called when the query to the Rally wsapi returns (see MainStore.js)
+     */
+    _createChart: function(records) {
+    	var chart = Ext.create('Chart');
+
+   		var data = chart._recordsToChartData(records);
+
+   		if (this.chartStore) {
+   			this.chartStore.loadRawData(data);
+   		} else {
+			this.chartStore = Ext.create('Ext.data.JsonStore', {
+			    fields: ['name', 'data'],
+			    data: data
+			});
+
+    		this.chart = chart._create(this);
+			
+			this.topRightContainer.add(this.chart);
+		}
+		this._createCenterGrid(data, records);
+    },
+
+    /*
+     * Creates a grid to accompany the chart (see this._createChart())
+     */
+    _createCenterGrid: function(data, records) {
+	    var centerGrid = Ext.create('CenterGrid');
+		centerGrid._addTotalStories(data);
+		centerGrid._addAverageDays(data, records);
+
+
+		if (this.centerGridStore) {
+			this.centerGridStore.loadRawData(data);
+		} else {
+			this.centerGridStore = Ext.create('Rally.data.custom.Store', {
+				fields: ['name', 'data'],
+	    	 	data: data
+	    	});
+
+			this.centerGrid = centerGrid._create(this);
+			this.topCenterContainer.add(this.centerGrid);
+		}
     }
 });
 
-//fix switching months on calendar
-//add a chart 
+/*
+TODO:
+-----
+-add links to story in main grid
+-fix jumpy chart
+-prefix 'private' methods with an underscore, public without
+-sort grid results in chronological order
+-take care of case when zero results are returned
+-add ability to see a chart with exclusions and without.  Switch between them with a radio button.
+-fix switching months on calendar
+-fix multidate calendar error by extending the object rather than editing the code
+-https://github.com/nohuhu/Ext.ux.form.field.MultiDate
+*/
 
+                /*
+ * Mixin that allows multiple values or ranges of values of the same type to be entered in
+ * a field.
+ *
+ * Version 0.99, compatible with Ext JS 4.1.
+ *  
+ * Copyright (c) 2011-2012 Alexander Tokarev.
+ *  
+ * This code is licensed under the terms of the Open Source LGPL 3.0 license.
+ * Commercial use is permitted to the extent that the code/component(s) do NOT
+ * become part of another Open Source or Commercially licensed development library
+ * or toolkit without explicit permission.
+ * 
+ * License details: http://www.gnu.org/licenses/lgpl.html
+ */
+
+Ext.define('Ext.ux.form.field.MultiValue', {
+    /**
+     * @private Mixin indicator.
+     */
+    isMultiValued: true,
+    
+    /**
+     * @cfg {Boolean} [multiValue=false] Determines if multiple values are allowed in
+     * the field.
+     */
+    multiValue: false,
+    
+    /**
+     * @cfg {RegExp} valueSeparator Regular expression used to separate input values
+     * from each other.
+     */
+    valueSeparatorRE: /[;,]\s*/,
+    
+    /**
+     * @cfg {RegExp} rangeSeparator Regular expression used to separate start and end
+     * of a range.
+     */
+    rangeSeparatorRE: /\s*-\s*/,
+
+    /**
+     * @cfg {RegExp} valuePattern Regular expression used to validate one value or
+     * part of a range.
+     */
+    valuePatternRE: /\d+/,
+    
+    /**
+     * @cfg {String} displayValueSeparator Character or string used to separate
+     * displayed values from each other. It may differ from both valueSeparator regex
+     * and submitValueSeparator.
+     */
+	displayValueSeparator: ', ',
+	
+	/**
+	 * @cfg {String} displayRangeSeparator Character or string used to denote a range
+	 * of values when displaying. It is placed between range start and end.
+	 */
+	displayRangeSeparator: '-',
+    
+    /**
+     * @cfg {String} submitValueSeparator Character or string used to separate
+     * submitted values from each other. It may differ from valueSeparator regex.
+     */
+    submitValueSeparator: ';',
+    
+    /**
+     * @cfg {String} submitRangeSeparator Character or string used to denote a range;
+     * it is placed between range start and end upon submitting values.
+     */
+    submitRangeSeparator: '-',
+    
+    constructor: function(config) {
+        var me = this,
+            config = config || {};
+        
+        Ext.apply(me, config);
+        
+        me.regex = me.multiValue ? me.initMultiRegex()
+                 :                 me.initSingleRegex()
+                 ;
+        
+        me.callParent(arguments);
+    },
+    
+    /**
+     * @private Creates regex for checking single value when multiValue is off.
+     */
+    initSingleRegex: function() {
+        var me = this,
+            value;
+        
+        value = me.valueRegex();
+        
+        return new RegExp( '^' + value + '$' );
+    },
+    
+    /**
+     * @private Creates regex for checking multiple values and ranges when multiValue is on.
+     */
+    initMultiRegex: function() {
+        var me = this,
+            value, vsep, rsep, range, valueOrRange;
+        
+        value = me.valueRegex();
+        
+        // Normalize regexen
+        me.rangeSeparatorRE = new RegExp(me.rangeSeparatorRE);
+        me.valueSeparatorRE = new RegExp(me.valueSeparatorRE);
+        
+        rsep  = me.rangeSeparatorRE.source;
+        vsep  = me.valueSeparatorRE.source;
+        
+        range = value + rsep + value;
+        valueOrRange = '(' + value + '|' + range + ')';
+        
+        return new RegExp(
+            '^' +
+                '(' + valueOrRange + ')'
+                +
+                '(' + vsep + valueOrRange + ')*'
+                +
+            '$'
+        );
+    },
+    
+    /**
+     * @private Normalizes single value regex.
+     */
+    valueRegex: function() {
+        var me = this,
+            vp;
+            
+        me.valuePatternRE = vp = new RegExp(me.valuePatternRE);
+        
+        return vp.source;
+    },
+    
+    /**
+     * @private Formats single value for submission.
+     */
+    formatSubmitValue: function(value) {
+        // Does nothing in mixin
+        return value;
+    },
+    
+    /**
+     * @private Formats single range of values for submission.
+     */
+    formatSubmitRange: function(range, rsep) {
+        var me = this,
+            start, end;
+
+        start = me.formatSubmitValue( range[0] );
+        end   = me.formatSubmitValue( range[1] );
+        
+        return start + rsep + end;
+    },
+    
+    /**
+     * @private Formats current values as a string for submission.
+     */
+    formatSubmit: function(values, rsep, vsep) {
+        var me = this,
+            multi = me.multiValue,
+            valsep = me.valueSeparatorRE,
+            ransep = me.rangeSeparatorRE,
+            items, isStr, doesMatch;
+        
+        items = me.splitValues(values, valsep);
+        
+        for ( var i = 0, l = items.length; i < l; i++ ) {
+            var item = items[i],
+                vr;
+                
+            vr = me.splitValues(item, ransep);
+            
+            items[i] = vr.length > 1 ? me.formatSubmitRange(vr, rsep || me.submitRangeSeparator)
+                     :                 me.formatSubmitValue(vr)
+                     ;
+        };
+        
+        values = items.join(vsep || me.submitValueSeparator);
+        
+        return values;
+    },
+    
+    /**
+     * @private Splits string of values using provided normalized regex.
+     * Always returns an array.
+     */
+    splitValues: function(values, regex) {
+        var me = this;
+        
+        return me.multiValue && Ext.isString(values) &&
+               regex.source !== '' && values.match(regex)   ? values.split(regex)
+             :                                                [ values ]
+             ;
+    },
+
+    /**
+     * @private Formats single value for displaying in input field.
+     */
+    formatDisplayValue: function(value) {
+        return Ext.isString(value) ? value : value.toString();  // Trying to be generic
+    },
+    
+    /**
+     * @private Formats single range of values for displaying in input field.
+     */
+    formatDisplayRange: function(range, rsep) {
+        var me = this,
+            start, end;
+        
+        start = me.formatDisplayValue( range[0] );
+        end   = me.formatDisplayValue( range[1] );
+        
+        return start + rsep + end;
+    },
+    
+    /**
+     * @private Formats array of values for displaying in input field. This method is mostly
+     * useful for using with pickers that return raw objects and arrays of objects.
+     */
+    formatDisplay: function(values, rsep, vsep) {
+        var me = this,
+            multi = me.multiValue,
+            results = [];
+        
+        if ( !multi ) {
+            return me.formatDisplayValue(values[0]);
+        };
+        
+        for ( var i = 0, l = values.length; i < l; i++ ) {
+            var value = values[i];
+            
+            if ( Ext.isArray(value) ) {
+                results.push( me.formatDisplayRange(value, rsep || me.displayRangeSeparator) );
+            }
+            else {
+                results.push( me.formatDisplayValue(value) );
+            };
+        };
+        
+        return results.join(vsep || me.displayValueSeparator);
+    }
+});
+                /*
+ * Date picker with support for multiple selections.
+ *
+ * Version 0.99, compatible with Ext JS 4.1.
+ *  
+ * Copyright (c) 2011-2012 Alexander Tokarev.
+ *  
+ * This code is licensed under the terms of the Open Source LGPL 3.0 license.
+ * Commercial use is permitted to the extent that the code/component(s) do NOT
+ * become part of another Open Source or Commercially licensed development library
+ * or toolkit without explicit permission.
+ * 
+ * License details: http://www.gnu.org/licenses/lgpl.html
+ */
+
+Ext.define('Ext.ux.picker.MultiDate', {
+    extend: 'Ext.picker.Date',
+    alias:  'widget.multidatepicker',
+    
+    alternateClassName: [ 'Ext.picker.MultiDate', 'Ext.MultiDatePicker' ],
+    
+    renderTpl: [
+        '<div class="{cls}" id="{id}-innerEl" role="grid">',
+            '<div role="presentation" class="{baseCls}-header">',
+                //'<div class="{baseCls}-prev"><a id="{id}-prevEl" href="#" role="button" title="{prevText}"></a></div>',
+                '<a id="{id}-prevEl" class="{baseCls}-prev {baseCls}-arrow" href="#" role="button" title="{prevText}" hidefocus="on" ></a>',
+                '<div class="{baseCls}-month" id="{id}-middleBtnEl">{%this.renderMonthBtn(values, out)%}</div>',
+               // '<div class="{baseCls}-next"><a id="{id}-nextEl" href="#" role="button" title="{nextText}"></a></div>',
+                '<a id="{id}-nextEl" class="{baseCls}-next {baseCls}-arrow" href="#" role="button" title="{nextText}" hidefocus="on" ></a>',
+
+            '</div>',
+            '<table id="{id}-eventEl" class="u{baseCls}-inner" cellspacing="0" role="presentation">',
+                '<thead role="presentation"><tr role="presentation">',
+                    '<tpl for="dayNames">',
+                        '<th role="columnheader" title="{.}"><span>{.:this.firstInitial}</span></th>',
+                    '</tpl>',
+                '</tr></thead>',
+                '<tbody role="presentation"><tr role="presentation">',
+                    '<tpl for="days">',
+                        '{#:this.isEndOfWeek}',
+                        '<td role="gridcell" id="{[Ext.id()]}">',
+                            '<a role="presentation" href="#" hidefocus="on" class="{parent.baseCls}-date" tabIndex="1">',
+                                '<em role="presentation"><span role="presentation"></span></em>',
+                            '</a>',
+                        '</td>',
+                    '</tpl>',
+                '</tr></tbody>',
+            '</table>',
+            '<div id="{id}-footerEl" role="presentation" class="{baseCls}-footer">',
+                '<tpl if="this.showToday">',
+                    '{%this.renderTodayBtn(values, out)%}',
+                '<tpl else>',
+                    '{%this.renderOkBtn(values, out)%}',
+                    '{%this.renderCancelBtn(values, out)%}',
+                    '{%this.renderClearBtn(values, out)%}',
+                '</tpl>',
+            '</div>',
+        '</div>',
+        {
+            firstInitial: function(value) {
+                return Ext.picker.Date.prototype.getDayInitial(value);
+            },
+            isEndOfWeek: function(value) {
+                // convert from 1 based index to 0 based
+                // by decrementing value once.
+                value--;
+                var end = value % 7 === 0 && value !== 0;
+                return end ? '</tr><tr role="row">' : '';
+            },
+            renderTodayBtn: function(values, out) {
+                Ext.DomHelper.generateMarkup(values.$comp.todayBtn.getRenderTree(), out);
+            },
+            renderOkBtn: function(values, out) {
+                Ext.DomHelper.generateMarkup(values.$comp.okBtn.getRenderTree(), out);
+            },
+            renderCancelBtn: function(values, out) {
+                Ext.DomHelper.generateMarkup(values.$comp.cancelBtn.getRenderTree(), out);
+            },
+            renderClearBtn: function(values, out) {
+                Ext.DomHelper.generateMarkup(values.$comp.clearBtn.getRenderTree(), out);
+            },
+            renderMonthBtn: function(values, out) {
+                Ext.DomHelper.generateMarkup(values.$comp.monthBtn.getRenderTree(), out);
+            }
+        }
+    ],
+    
+    nextText:      Ext.isMac ? 'Next Month (&#x2318;&#x2192;)' : 'Next Month (Control+Right)',
+    prevText:      Ext.isMac ? 'Previous Month (&#x2318&#x2190;)' : 'Previous Month (Control+Left)',
+    monthYearText: Ext.isMac ? 'Choose a month (&#x2318 + &#x2191;/&#x2193; to move years)' : 'Choose a month (Control+Up/Down to move years)',
+    
+    /**
+     * @cfg {String} okText OK button text.
+     */
+    okText:        'OK',
+    
+    /**
+     * @cfg {String} okTooltip OK button tooltip text.
+     */
+    okTooltip:     Ext.isMac ? 'Confirm selection (⏎)' : 'Confirm selection (Enter)',
+    
+    /**
+     * @cfg {String} cancelText Cancel button text.
+     */
+    cancelText:    'Cancel',
+    
+    /**
+     * @cfg {String} cancelTooltip Cancel button tooltip text.
+     */
+    cancelTooltip: Ext.isMac ? 'Cancel selection (⎋)' : 'Cancel selection (Escape)',
+    
+    /**
+     * @cfg {String} clearText 'Clear selection' button text.
+     */
+    clearText:     'Clear',
+    
+    /**
+     * @cfg {String} clearTooltip 'Clear selection' button tooltip text.
+     */
+    clearTooltip:  Ext.isMac ? 'Clear selection (⌘⌫)' : 'Clear selection (Ctrl+Backspace)',
+    
+    /**
+     * @cfg {Int[]/Boolean} workDays Array of 0-based week day numbers that represent
+     * work week for given locale. Defaults to Monday-Friday. Set to 'false' to turn
+     * this feature off.
+     */
+    workDays: [ 1, 2, 3, 4, 5 ],
+    
+    showToday: false,
+    
+    initComponent: function() {
+        var me = this,
+            wd = me.workDays;
+        
+        me.callParent(arguments);
+        
+        // Active cell class is different
+        me.activeCls = 'ux-datepicker-active';
+        
+        me.selDates = [];
+        
+        if ( wd && Ext.isArray(wd) ) {
+            var hash = {
+                0: false, 1: false, 2: false, 3: false, 4: false, 5: false, 6: false
+            };
+            
+            for ( var i = 0, l = wd.length; i < l; i++ ) {
+                hash[ wd[i] ] = true;
+            };
+            
+            me.workDaysHash = hash;
+        }
+        else {
+            me.workDaysHash = {
+                0: true, 1: true, 2: true, 3: true, 4: true, 5: true, 6: true
+            };
+        };
+    },
+    
+    beforeRender: function() {
+        var me = this;
+        
+        me.callParent(arguments);
+        
+        if ( !me.showToday ) {
+            Ext.destroy(me.todayBtn);
+
+            var layout = me.getComponentLayout();
+        
+            me.okBtn = new Ext.button.Button({
+                ownerCt:     me,
+                ownerLayout: layout,
+                text:        me.okText,
+                tooltip:     me.okTooltip,
+                handler:     me.onOkButton,
+                scope:       me
+            });
+            
+            me.cancelBtn = new Ext.button.Button({
+                ownerCt:     me,
+                ownerLayout: layout,
+                text:        me.cancelText,
+                tooltip:     me.cancelTooltip,
+                handler:     me.onCancelButton,
+                scope:       me
+            });
+            
+            me.clearBtn = new Ext.button.Button({
+                ownerCt:     me,
+                ownerLayout: layout,
+                text:        me.clearText,
+                tooltip:     me.clearTooltip,
+                handler:     me.clearSelection,
+                scope:       me
+            });
+        };
+    },
+    
+    finishRenderChildren: function() {
+        var me = this;
+        
+        me.callParent();
+        
+        if ( !me.showToday ) {
+            me.okBtn.finishRender();
+            me.cancelBtn.finishRender();
+            me.clearBtn.finishRender();
+        };
+    },
+    
+    initEvents: function() {
+        var me = this,
+            evEl = me.eventEl;
+        
+        me.callParent(arguments);
+        
+        // Override default key handlers
+        evEl.addKeyListener(Ext.EventObject.ENTER, me.onOkButton,     me);
+        evEl.addKeyListener(Ext.EventObject.ESC,   me.onCancelButton, me);
+        evEl.addKeyListener(Ext.EventObject.SPACE, me.handleSpacebar, me);
+        evEl.addKeyListener({ key: Ext.EventObject.BACKSPACE, ctrl: true }, me.clearSelection, me);
+    },
+    
+    /**
+     * @private Assigns values and refreshes the picker.
+     */
+    setValue: function(values) {
+        var me = this;
+        
+        function getClearTime(d) { return Ext.Date.clearTime(d).getTime() };
+        
+        me.selDates = Ext.isArray(values) ? Ext.Array.map(values, getClearTime)
+                    :                      [ getClearTime(values) ]
+                    ;
+        
+        //me.update(me.selDates);
+        me.update(values);
+    },
+    
+    /**
+     * @private Returns current selection range.
+     */
+    getValue: function() {
+        var me = this;
+        
+        return Ext.Array.map(me.selDates, function(t) { return new Date(t) });
+    },
+    
+    onOkButton: function() {
+        var me = this,
+            handler = me.handler;
+        
+        if ( !me.disabled ) {
+            var value = me.getValue();
+            
+            me.fireEvent('select', me, value);
+        
+            if ( handler ) {
+                handler.call(me.scope || me, me, value);
+            };
+            
+            me.onSelect();
+            me.clearSelection();
+        };
+    },
+    
+    onCancelButton: function() {
+        var me = this;
+        
+        me.clearSelection();
+        me.pickerField.collapse();
+    },
+    
+    clearSelection: function() {
+        var me = this,
+            cells = me.cells,
+            aCls = me.activeCls,
+            sCls = me.selectedCls;
+        
+        // Clear the selection
+        me.selDates = [];
+        me.rangeSelection = false;
+        cells.removeCls(aCls);
+        cells.removeCls(sCls);
+        
+        me.update(Ext.Date.clearTime( new Date() ));
+    },
+
+    handleDateClick : function(event, target) {
+        var me = this,
+            selDates = me.selDates,
+            el, dv, dt;
+
+        event.stopEvent();
+        
+        el = Ext.fly(target.parentElement);
+        dv = target.dateValue;
+        
+        if ( event.shiftKey && !event.ctrlKey ) {           // Select work week
+            dt = me.toggleWeekSelection(el);
+        }
+        else if ( event.ctrlKey ) {        // Select range or work range (no toggling)
+            if ( !me.rangeSelection ) {    // Start selection
+                me.rangeSelection = dv;
+                dt = me.toggleDateSelection(el, true, dv);
+            }
+            else {          // End selection
+               dt = me.selectRange(me.rangeSelection, dv, event.shiftKey);
+               me.rangeSelection = false;
+            };
+        }
+        else {                                      // Select single day
+            dt = me.toggleDateSelection(el, undefined, dv);
+        };
+        
+        if ( dt ) {
+            me.update(selDates);
+        };
+        
+        // Set active date, too
+        me.update( new Date(dv) );
+    },
+
+    handleSpacebar: function(keycode, event) {
+        var me       = this,
+            selDates = me.selDates,
+            cells    = me.cells,
+            activeDate, activeCell, activeIdx, dt;
+        
+        activeDate = me.activeDate.getTime();
+        activeIdx  = me.getCellIndex(activeDate);
+        
+        if ( activeIdx == -1 ) {
+            return;
+        };
+        
+        activeCell = cells.item(activeIdx);
+        
+        dt = event.shiftKey ? me.toggleWeekSelection(activeCell, activeIdx)
+           :                  me.toggleDateSelection(activeCell, undefined, activeDate)
+           ;
+        
+        if ( dt ) {
+            me.update(selDates);
+        };
+    },
+    
+    /**
+     * @private Returns cell index by date value.
+     */
+    getCellIndex: function(value) {
+        var me = this,
+            cells = me.cells,
+            index;
+            
+        // This is suboptimal but I don't know a way to do it otherwise
+        // without affecting me.cells.
+        cells.each(function(el, c, idx) {
+            if ( !index && el.down('a').getAttribute('dateValue') === value ) {
+                index = idx;
+            };
+        });
+        
+        return index === undefined ? -1 : index;
+    },
+    
+    selectRange: function(start, end, workWeek) {
+        var me       = this,
+            selDates = me.selDates,
+            wdHash   = me.workDaysHash,
+            add      = Ext.Date.add,
+            DAY      = Ext.Date.DAY,
+            contains = Ext.Array.contains,
+            include  = Ext.Array.include,
+            tmp, dt, dv;
+        
+        // JS is ugly.
+        if ( start > end ) {
+            tmp   = start;
+            start = end;
+            end   = tmp;
+        };
+        
+        // If start date falls on a weekend we shouldn't allow it
+        // to be selected
+        Ext.Array.remove( selDates, new Date(start).getTime() );
+        
+        DATE:
+        for ( dt = new Date(start), dv = dt.getTime();
+              dv <= end;
+              dt = add(dt, DAY, 1), dv = dt.getTime() )
+        {
+            if ( workWeek && !wdHash[ dt.getDay() ] ) {
+                continue DATE;
+            };
+            
+            include(selDates, dv);
+        };
+        
+        return true;
+    },
+    
+    toggleWeekSelection: function(el, index) {
+        var me          = this,
+            cells       = me.cells,
+            selectedCls = me.selectedCls,
+            disabledCls = me.disabledCellCls,
+            workDays    = me.workDays,
+            selected, dayNo, firstDay;
+        
+        if ( index === undefined ) {
+            index = me.getCellIndex( el.down('a').getAttribute('dateValue') );
+        };
+        
+        if ( !me.disabled && !el.hasCls(disabledCls) ) {
+            selected = el.hasCls(selectedCls);
+            dayNo    = index % 7;
+            firstDay = index - dayNo;
+            
+            // We're toggling only work week. If there's a need to toggle
+            // whole week, adjust workDays to have values [0..6].
+            if ( Ext.Array.contains(workDays, dayNo) ) {
+                var i = firstDay + workDays[0],
+                    l = firstDay + workDays[ workDays.length - 1 ];
+                    
+                for (; i <= l; i++ ) {
+                    me.toggleDateSelection( cells.item(i), !selected );
+                };
+            };
+        };
+        
+        return true;
+    },
+    
+    toggleDateSelection: function(el, state, dv) {
+        var me = this,
+            selDates = me.selDates,
+            selectedCls = me.selectedCls,
+            disabledCls = me.disabledCellCls,
+            selected, dv;
+        
+        if ( dv === undefined ) {
+            dv = el.down('a').getAttribute('dateValue');
+        };
+        
+        if ( !me.disabled && !el.hasCls(disabledCls) && dv ) {
+            selected = state !== undefined ? !state : el.hasCls(selectedCls);
+            
+            if ( selected ) {
+                Ext.Array.remove(selDates, dv);
+            }
+            else {
+                Ext.Array.include(selDates, dv);
+            };
+            
+            return el;
+        };
+        
+        return undefined;
+    },
+    
+    selectedUpdate: function(dates, active) {
+        var me          = this,
+            cells       = me.cells,
+            selectedCls = me.selectedCls,
+            activeCls   = me.activeCls,
+            visible, cancelFocus;
+        
+        visible     = me.isVisible();
+        cancelFocus = !me.focusOnSelect;
+        
+        cells.each( function(el) {
+            var picker = this,
+                dv;
+            
+            el.removeCls([activeCls, selectedCls]);
+            
+            dv = el.down('a').getAttribute('dateValue');
+            
+            if ( dv === active ) {
+                picker.getEl().set({ 'aria-activedescendant': el.id });
+                
+                el.addCls(activeCls);
+                
+                if ( visible && !cancelFocus ) {
+                    Ext.fly( el.down('a') ).focus(50);
+                };
+            };
+            
+            if ( Ext.Array.contains(dates, dv) ) {
+                el.addCls(selectedCls);
+            };
+        }, me);
+    },
+    
+    update: function(dates, forceRefresh) {
+        var me = this,
+            selDates,
+            active = me.activeDate,
+            newActive;
+        
+        if ( Ext.isArray(dates) ) {
+            me.selDates = dates;
+        };
+        
+        selDates = me.selDates || [];
+        
+        newActive = Ext.isDate(dates)       ? dates
+                  :                           active
+                  ;
+        
+        if ( me.rendered ) {
+            var am = active    && active.getMonth(),
+                ay = active    && active.getFullYear(),
+                nm = newActive && newActive.getMonth(),
+                ny = newActive && newActive.getFullYear();
+                
+            me.activeDate = newActive;
+
+            if ( !forceRefresh && am == nm && ay == ny ) {
+                me.selectedUpdate(selDates, newActive.getTime());
+            }
+            else {
+                me.fullUpdate(newActive, active);
+                me.selectedUpdate(selDates, newActive.getTime());
+            };
+        };
+        
+        return me;
+    },
+    
+    beforeDestroy: function() {
+        var me = this;
+        
+        if ( me.rendered ) {
+            Ext.destroy(
+                me.okBtn,
+                me.cancelBtn,
+                me.clearBtn
+            );
+            
+            delete me.selDates;
+        };
+        
+        me.callParent(arguments);
+    }
+});
                 /*
  * Input field that allows multiple date values, including multiple contiguous ranges.
  *
@@ -808,2630 +1563,339 @@ Ext.define('Ext.ux.form.field.MultiDate', {
 		return first.getTime() === last.getTime();
 	}
 });
-                /*
- * Input field that allows selecting either single month or a range of months.
- * Range is selected as start and end months, inclusive.
- *
- * Version 0.99, compatible with Ext JS 4.1.
- *  
- * Copyright (c) 2011-2012 Alexander Tokarev.
- *  
- * Usage: see demo application.
- *
- * This code is licensed under the terms of the Open Source LGPL 3.0 license.
- * Commercial use is permitted to the extent that the code/component(s) do NOT
- * become part of another Open Source or Commercially licensed development library
- * or toolkit without explicit permission.
- * 
- * License details: http://www.gnu.org/licenses/lgpl.html
- */
+                Ext.define('CenterGrid', {
+    _addTotalStories: function(data) {
+        var totalStories = _.reduce(data, function(sum, el) {
+            return sum + el.data;
+        }, 0);
 
-Ext.define('Ext.ux.form.field.MultiMonth', {
-    extend: 'Ext.ux.form.field.MultiDate',
-    alias:  'widget.multimonthfield',
-    
-    alternateClassName: [
-        'Ext.form.field.MultiMonth',
-        'Ext.form.MultiMonthField',
-        'Ext.form.MultiMonth'
-    ],
-    
-    requires: [
-        'Ext.picker.Month',
-        'Ext.ux.picker.MultiMonth'
-    ],
-    
-    /**
-     * @cfg {String} startingMonthText Text to display for starting month header.
-     */
-    startingMonthText: 'Starting Month',
-    
-    /**
-     * @cfg {String} endingMonthText Text to display for ending month header.
-     */
-    endingMonthText: 'Ending Month',
-    
-    valueSeparatorRE: /^$/,
-    
-    format: 'm/Y',
-    altFormats: 'm/y|n/Y|n/y|m|n',
-    
-    createPicker: function() {
-        var me = this,
-            format = Ext.String.format;
-        
-        if ( me.multiValue ) {
-            return Ext.create('Ext.picker.MultiMonth', {
-                pickerField: me,
-                ownerCt: me.ownerCt,
-                renderTo: document.body,
-                floating: true,
-                hidden: true,
-                small: false,
-                focusOnShow: true,
-                minDate: me.minValue,
-                maxDate: me.maxValue,
-                format: me.format,
-                startingMonthText: me.startingMonthText,
-                endingMonthText: me.endingMonthText,
-                okText: me.okText,
-                cancelText: me.cancelText,
-                clearText: me.clearText,
-                minText: format(me.minText, me.formatDate(me.minValue)),
-                maxText: format(me.maxText, me.formatDate(me.maxValue)),
+        data.push({ name: 'Total Stories Completed', data: totalStories });
+    },
+
+    _addAverageDays: function(data, records) {
+        var totalDaysExclusions = _.reduce(records, function(sum, el) {
+            return sum + el.DaysInProgressExclusions;
+        }, 0);
+
+        var average = totalDaysExclusions / records.length;
+        var averageRounded = Math.round(average * 100) / 100;
+
+        data.push({ name: 'Average Number of Days In Progress', data: averageRounded });
+    },
+
+    _create: function(App) {
+        return Ext.create('Rally.ui.grid.Grid', {
+                store: App.centerGridStore,
+                showPagingToolbar: false,
                 listeners: {
-                    scope: me,
-                    cancelclick: me.onCancelClick,
-                    okclick: me.onOkClick
+                    load: function(myStore, myData, success) {
+                        console.log("I'm here!");
+                    }
                 },
-                keyNavConfig: {
-                    esc: function() {
-                        me.collapse();
+                columnCfgs: [{
+                    text: '',
+                    dataIndex: 'name',
+                },
+                {
+                    text: '',
+                    dataIndex: 'data'
+                }]
+            });
+    }
+});
+                Ext.define('Chart', {
+    _recordsToChartData: function(records) {
+        //TODO: this method is extremely ugly.  Maybe there is a nice functional way to do it?
+        var dict = {};
+        for (var i = 0; i < records.length; i++) {
+            var exclusions = records[i].DaysInProgressExclusions
+
+            var m = 1;
+            var MAX = 20;   //as the function is written, this should be a multiple of 5
+            while (m * 5 <= MAX) {
+                var multiple = 5 * m;
+                if (exclusions <= multiple) {
+                    var begin = (multiple == 5) ? 0 : multiple - 4;
+
+                    var name = 'Stories ' + begin + ' to ' + multiple;
+                    this._populateDictionary(dict, multiple, name);
+                    break;
+                }
+                m++;
+            }
+            if (m * 5 > MAX) {
+                var name = 'More than ' + MAX;
+                var index = MAX + 1;    //ensure this is the largest key in the dictionary
+                this._populateDictionary(dict, index, name);
+            }
+        }
+
+        var data = [];
+        for (var prop in dict) {
+            data.push(dict[prop]);
+        }
+
+        //TODO: data may have to be sorted...for over the object properties may not be in any guaranteed order?
+        return data;
+    },
+
+    _populateDictionary: function(dict, index, name) {
+        if (dict[index] == undefined) {
+            dict[index] = { 'name': name, 'data': 1 };
+        } else {
+            var obj = dict[index];
+            obj.data++;
+        }
+    },
+
+    _create: function(App){
+        return Ext.create('Ext.chart.Chart', {
+                renderTo: Ext.getBody(),
+                width: 500,
+                height: 350,
+                animate: true,
+                store: App.chartStore,
+                theme: 'Base:gradients',
+                legend: {
+                    visible:true,
+                    position: 'left',
+                    labelFont: '12px Arial'
+                },
+                series: [{
+                    type: 'pie',
+                    angleField: 'data',
+                    showInLegend: true,
+                    tips: {
+                        trackMouse: true,
+                        width: 140,
+                        height: 28,
+                        renderer: function(storeItem, item) {
+                            // calculate and display percentage on hover
+                            var total = 0;
+                            store.each(function(rec) {
+                                total += rec.get('data');
+                            });
+                            this.setTitle(storeItem.get('name') + ': ' + Math.round(storeItem.get('data') / total * 100) + '%'); 
+                        }
+                    },
+                    highlight: {
+                        segment: {
+                            margin: 20
+                        }
+                    },
+                    label: {
+                        field: 'name',
+                        display: 'rotate',
+                        contrast: true,
+                        font: '12px Arial'
+                    }
+                }]
+            });
+    }
+});
+                Ext.define('MainGrid', {
+    _create: function(App) {
+        return Ext.create('Rally.ui.grid.Grid', {
+                store: App.customGridStore,
+                columnCfgs: [{
+                    flex: 1,
+                    text: 'ID',
+                    dataIndex: 'FormattedID',
+                }, 
+                {
+                    flex: 1,
+                    text: 'Name',
+                    dataIndex: 'Name',
+                },
+                {
+                    flex: 1,
+                    text: 'Days In Progress', 
+                    dataIndex: 'DaysInProgress'
+                },
+                {
+                    flex: 1,
+                    text: 'Days In Progress (w/ Exclusions)', 
+                    dataIndex: 'DaysInProgressExclusions'
+                },
+                {
+                    flex: 1,
+                    text: 'In Progress Date',
+                    dataIndex: 'InProgressDate',
+                },
+                {
+                    flex: 1,
+                    text: 'Accepted Date',
+                    dataIndex: 'AcceptedDate',
+                }]
+            });
+    }
+});
+                Ext.define('MainStore', {
+    _create: function(App, storeFilters){
+        return Ext.create('Rally.data.wsapi.Store', {
+                model: 'User Story',
+                autoLoad: true,
+                filters: storeFilters,
+                listeners: {
+                    load: function(myStore, myData, success) {
+                        var records = _.map(myData, function(record) {
+
+                            function calculateDateDifference(record){
+                                var inProgressDate = record.get('InProgressDate');
+                                var acceptedDate = record.get('AcceptedDate');
+
+                                //http://stackoverflow.com/questions/2627473/how-to-calculate-the-number-of-days-between-two-dates-using-javascript
+                                var oneDay = 24*60*60*1000; // hours*minutes*seconds*milliseconds
+                                //var diffDays = Math.round(Math.abs((inProgressDate.getTime() - acceptedDate.getTime())/(oneDay)));
+                                var diffDays = Math.ceil(Math.abs((inProgressDate.getTime() - acceptedDate.getTime())/(oneDay)));
+                                return diffDays;
+                            }
+
+                            function calculateExclusions(record, context) {
+                                var field = Ext.getCmp('multiDateField');
+                                var inProgressDate = record.get('InProgressDate');
+                                var acceptedDate = record.get('AcceptedDate');
+
+                                var inProgressDateString = inProgressDate.getFullYear() + '-'
+                                    + ('0' + (inProgressDate.getMonth()+1)).slice(-2) + '-'
+                                    + ('0' + inProgressDate.getDate()).slice(-2);
+
+                                var acceptedDateString = acceptedDate.getFullYear() + '-'
+                                    + ('0' + (acceptedDate.getMonth()+1)).slice(-2) + '-'
+                                    + ('0' + acceptedDate.getDate()).slice(-2);
+
+
+                                var dateRange = inProgressDateString + "/" + acceptedDateString;
+                                var dateArray = field.expandValues(dateRange, 'Y-m-d', ';', '/');
+
+                                var excluded;
+                                if (context.checkboxValue) {
+                                    var weekendDays = _.filter(dateArray, function(date) {
+                                        var day = date.getDay();
+                                        return day == 0 || day == 6;
+                                    });
+
+                                    var weekendDayStrings =  _.map(weekendDays, function(date) {
+                                        return date.toString();
+                                    });
+
+                                    excluded = _.uniq(_.union(weekendDayStrings, context.excludedDates));
+                                } else {
+                                    excluded = context.excludedDates;
+                                }
+
+                                var dateStringArray =  _.map(dateArray, function(date) {
+                                    return date.toString();
+                                });
+
+                                var intersection = _.intersection(dateStringArray, excluded); //run intersection in string arrays instead of date arrays
+
+                                var exclusions = calculateDateDifference(record) - intersection.length;
+                                return exclusions >= 0 ? exclusions : 0;
+                            }
+
+                            return Ext.apply({              
+                                DaysInProgress: calculateDateDifference(record),
+                                DaysInProgressExclusions: calculateExclusions(record, App)
+                            }, record.getData());
+                        }, App);
+
+                        App._loadGrid(myStore, records);
+                        App._createChart(records);
+                    },
+                    scope: App
+                },
+                fetch: ['FormattedID', 'Name', 'AcceptedDate', 'InProgressDate', 'RevisionHistory', 'Revisions', 'Description', 'User', 'Project']
+            });
+    }
+});
+                Ext.require([
+    'Ext.ux.form.field.MultiDate'
+]);
+
+Ext.define('MultiDateCalendarPanel', {
+    _create: function(App){
+        Ext.tip.QuickTipManager.init();
+        var store;
+
+        /*
+         *  Creates a panel with a multi date calendar, an 'exclude weekends' checkbox, and a 'Get Report' button
+         */
+        return Ext.create('Ext.form.Panel', {           
+            id: 'formPanel',
+            
+            layout: 'vbox',
+            frame: false,
+            border: false,
+            
+            defaults: {
+                autoScroll: true,
+                bodyPadding: 8,
+                listeners: {
+                    specialkey: function(form, event) {
+                        if (event.getKey() === event.ENTER) {
+                            form.up().down('#validateButton').handler();
+                        };
                     }
                 }
-            });
-        }
-        else {
-            return Ext.create('Ext.picker.Month', {
-                pickerField: me,
-                ownerCt: me.ownerCt,
-                renderTo: document.body,
-                floating: true,
-                hidden: true,
-                small: false,
-                focusOnShow: true,
-                minDate: me.minValue,
-                maxDate: me.maxValue,
-                format: me.format,
-                minText: format(me.minText, me.formatDate(me.minValue)),
-                maxText: format(me.maxText, me.formatDate(me.maxValue)),
-                listeners: {
-                    scope: me,
-                    cancelclick: me.onCancelClick,
-                    okclick: me.onOkClick,
-                    yeardblclick: me.onOkClick,
-                    monthdblclick: me.onOkClick
+            },
+            
+            items: [{
+                    xtype: 'multidatefield',
+                    id: 'multiDateField',
+                    fieldLabel: 'Exclusions',
+                    allowBlank: true,
+                    multiValue: true,
+                    submitFormat: 'Y-m-d',
+                    submitRangeSeparator: '/',
+                }, 
+                {
+                    xtype: 'fieldcontainer',
+                    fieldLabel: 'Exclude Weekends',
+                    defaultType: 'checkboxfield',
+                    items: [
+                        {
+                            name      : 'weekendCheckbox',
+                            inputValue: '1',
+                            checked   : true,
+                            id        : 'weekendCheckbox'
+                        }
+                    ]
                 },
-                keyNavConfig: {
-                    esc: function() {
-                        me.collapse();
-                    }
-                }
-            });
-        };
-    },
-    
-    getErrors: function(values) {
-        var me = this,
-            multi = me.multiValue,
-            rsep = me.rangeSeparatorRE,
-            format = Ext.String.format,
-            errors, range, dt, isValid;
-        
-        errors = me.callParent(arguments) || [];
-        
-        if ( errors.length ) return errors;
-        
-        if ( multi && values !== '' ) {      // Blank values are checked in ancestor class
-
-            // Try to validate the value as a single; it may just be one
-            dt = me.parseDate(values);
-            
-            if ( Ext.isDate(dt) ) {
-                isValid = me.validateDate(values);
-                
-                if ( isValid !== true ) {
-                    errors.push(isValid);
-                };
-            }
-            else {
-                range = me.splitValues(values, rsep);
-                
-                if ( range.length < 2 ) {
-                    errors.push( format(me.invalidRangeText, values) );
-                };
-            };
-        };
-        
-        return errors;
-    },
-    
-    setSubmitValue: function(value) {
-        var me = this,
-            fmt = me.submitFormat,
-            vsep, rsep, values, text;
-        
-        vsep = new XRegExp(me.submitValueSeparator);
-        rsep = new XRegExp(me.submitRangeSeparator);
-        
-        values = me.splitValues(value, rsep);
-        
-        if ( !me.multiValue ) {
-            text = me.formatDisplayValue(values[0], fmt);
-        }
-        else {
-            text = me.formatDisplay(values, undefined, undefined, fmt);
-        };
-        
-        me.setRawValue(text || '');
-    },
-    
-    onCancelClick: function() {
-        var me = this;
-        
-        me.collapse();
-    },
-    
-    onOkClick: function() {
-        var me = this,
-            picker = me.picker,
-            values, text;
-        
-        if ( me.multiValue ) {
-            values = Ext.Array.map(picker.getValue(), me.formatPickerValue, me);
-            text = me.formatDisplay(values);
-        }
-        else {
-            values = me.formatPickerValue( picker.getValue() );
-            text = me.formatDisplayValue( values );
-        };
-        
-        me.setRawValue(text);
-        
-        me.fireEvent('select', me, text);
-        me.collapse();
-        
-        me.validate();
-    },
-    
-    formatPickerValue: function(value) {
-        var me = this,
-            dt;
-
-        dt = Ext.Date.parse( value[1] + '-' + (value[0] + 1) + '-1', 'Y-n-j' );
-        
-        return Ext.Date.format(dt, me.format);
-    },
-    
-    formatSubmitValue: function(value) {
-        var me = this,
-            fmt = me.submitFormat || me.format,
-            dt, res;
-        
-        try {
-            dt = Ext.Date.clearTime( me.parseDate(value) );
-            dt.setDate(1);
-            res = Ext.Date.format(dt, fmt);
-        } catch (e) {};
-        
-        return Ext.isString(res) ? res : '';
-    },
-    
-    formatDisplayValue: function(value, format) {
-        var me = this,
-            fmt = me.format,
-            dt, res;
-        
-        try {
-            dt   = Ext.Date.clearTime( me.parseDate(value, format) );
-            res  = Ext.Date.format(dt, fmt);
-        }
-        catch (e) {};
-        
-        return Ext.isString(res) ? res : value;
-    },
-    
-    formatDisplay: function(values, rsep, vsep, format) {
-        var me = this,
-            start, end;
-        
-        if ( !me.multiValue ) {
-            return values;          // Should be a string
-        };
-        
-        start = me.formatDisplayValue( values[0], format );
-        end   = me.formatDisplayValue( values[1], format );
-        
-        return start && end ? start + (rsep || me.displayRangeSeparator) + end
-             :                ''
-             ;
-    },
-    
-    expandValues: function(text, format, vSeparator, rSeparator) {
-        var me   = this,
-            rsep = rSeparator || me.rangeSeparatorRE,
-            fmt  = format     || me.format,
-            values, result;
-        
-        if ( text === '' || text === null ) {
-            var now = new Date();
-            
-            return [
-                [ now.getMonth(), now.getFullYear() ], 
-                [ now.getMonth(), now.getFullYear() ]
-            ];
-        };
-        
-        values = me.splitValues(text, rsep);
-        result = Ext.Array.map(values, function(value) {
-                    var dt = me.parseDate(value, fmt);
-                    return [ dt.getMonth(), dt.getFullYear() ];
-                 }, me);
-        
-        return result;
-    }
-});
-                /*
- * Input field that allows time range to be entered.
- *
- * Version 0.99, compatible with Ext JS 4.1.
- *  
- * Copyright (c) 2011-2012 Alexander Tokarev.
- *  
- * Usage: see demo application.
- *
- * This code is licensed under the terms of the Open Source LGPL 3.0 license.
- * Commercial use is permitted to the extent that the code/component(s) do NOT
- * become part of another Open Source or Commercially licensed development library
- * or toolkit without explicit permission.
- * 
- * License details: http://www.gnu.org/licenses/lgpl.html
- */
-
-Ext.define('Ext.ux.form.field.MultiTime', {
-    extend: 'Ext.ux.form.field.MultiMonth',
-    alias:  'widget.multitimefield',
-    
-    alternateClassName: [
-        'Ext.form.field.MultiTime',
-        'Ext.form.MultiTimeField',
-        'Ext.form.MultiTime'
-    ],
-    
-    requires: [ 'Ext.ux.picker.MultiTime' ],
-    
-    /**
-     * @cfg {String} minText Error text to display if minValue validation fails.
-     */
-    minText: '{0} is less than minimum time',
-    
-    /**
-     * @cfg {String} maxText Error text to display if maxValue validation fails.
-     */
-    maxText: '{0} is more than maximum time',
-    
-	/**
-	 * @cfg {String} invalidRangeText
-	 * Error text to display when an invalid date range is entered.
-	 */
-	invalidRangeText: '{0} is not a valid time range',
-	
-	/**
-	 * @cfg {String} invalidRangeEndsText
-	 * Error text to display when range end is less than range start.
-	 */
-	invalidRangeEndsText: '{0} is invalid: start time must be less than end time',
-	
-	/**
-	 * @cfg {String} selectTimeText Text to display for picker header in single-value mode.
-	 */
-	selectTimeText: 'Select Time',
-	
-    /**
-     * @cfg {String} startingTimeText Text to display for starting time header.
-     */
-    startingTimeText: 'Starting Time',
-    
-    /**
-     * @cfg {String} endingTimeText Text to display for ending time header.
-     */
-    endingTimeText: 'Ending Time',
-    
-    /**
-     * @cfg {String} amText Text to display in AM field.
-     */
-    amText: 'AM',
-    
-    /**
-     * @cfg {String} pmText Text to display in PM field.
-     */
-    pmText: 'PM',
-    
-	/**
-	 * @cfg {String} hoursText Text to display in Hours separator.
-	 */
-	hoursText: 'Hours:',
-	
-	/**
-	 * @cfg {String} minutesText Text to display in Minutes separator.
-	 */
-	minutesText: 'Minutes:',
-
-	/**
-	 * @cfg {String} okText Text to display in OK button.
-	 */
-	okText: 'OK',
-	
-	/**
-	 * @cfg {String} cancelText Text to display in Cancel button.
-	 */
-	cancelText: 'Cancel',
-	
-	/**
-	 * @cfg {String} clearText Text to display in Clear button.
-	 */
-	clearText: 'Clear',
-
-	/**
-	 * @cfg {String[]} hourValues Array of hour values.
-	 */
-	hourValues: [
-	    '12', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11'
-	],
-	
-	/**
-	 * @cfg {String[]} minuteValues Array of minute values.
-	 */
-	minuteValues: [
-	    '00', '15', '30', '45'
-	],
-	
-    /**
-     * @cfg {String} format
-     * The default time format string which can be overriden for localization support. The format must be valid
-     * according to {@link Ext.Date#parse} (defaults to 'g:i A', e.g., '3:15 PM'). For 24-hour time format try 'H:i'
-     * instead.
-     */
-    format : "g:i A",
-
-    /**
-     * @cfg {String} submitFormat
-     * The date format string which will be submitted to the server. The format must be valid according to {@link
-     * Ext.Date#parse} (defaults to {@link #format}).
-     */
-    submitFormat: 'H:i',
-
-    /**
-     * @cfg {String} altFormats
-     * Multiple date formats separated by "|" to try when parsing a user input value and it doesn't match the defined
-     * format.
-     */
-    altFormats : "g:ia|g:iA|g:i a|g:i A|h:i|g:i|H:i|ga|ha|gA|h a|g a|g A|gi|hi|gia|hia|g|H|gi a|hi a|giA|hiA|gi A|hi A",
-
-    /**
-     * @cfg {Number} increment
-     * The number of minutes between each time value in the list.
-     * Supported values are 15, 30 or 60 minutes.
-     */
-    increment: 15,
-    
-    /**
-     * @cfg {String} invalidIncrementText Text to display when time entered does not match increment.
-     */
-    invalidIncrementText: 'Time should be entered in {0} minutes increments',
-    
-    triggerCls: 'ux-form-time-trigger',
-
-    valueSeparatorRE: /^$/,
-    
-    submitRangeSeparator: '/',
-    
-    createPicker: function() {
-        var me = this;
-        
-        return Ext.create('Ext.ux.picker.MultiTime', {
-            pickerField:      me,
-            ownerCt:          me.ownerCt,
-            renderTo:         document.body,
-            floating:         true,
-            hidden:           true,
-            focusOnShow:      true,
-            minTime:          me.getMinTime(),
-            maxTime:          me.getMaxTime(),
-            multiValue:       me.multiValue,
-            startingTimeText: me.startingTimeText,
-            endingTimeText:   me.endingTimeText,
-            amText:           me.amText,
-            pmText:           me.pmText,
-            hoursText:        me.hoursText,
-            minutesText:      me.minutesText,
-            okText:           me.okText,
-            cancelText:       me.cancelText,
-            clearText:        me.clearText,
-            hourValues:       me.hourValues,
-            minuteValues:     me.minuteValues,
-            increment:        me.increment,
-            listeners: {
-                scope:        me,
-                okclick:      me.onOkClick,
-                cancelclick:  me.onCancelClick
-            },
-            keyNavConfig: {
-                esc: function() {
-                    me.collapse();
-                }
-            }
-        });
-    },
-    
-    onExpand: function() {
-        var me = this,
-            text, values;
-        
-        if ( me.multiValue ) {
-            return me.callParent();
-        };
-        
-        text = me.getRawValue();
-        
-        if ( me.isValid() ) {
-            values = me.expandValues(text);
-            me.picker.setValue(values);
-        }
-        else if ( text === '' ) {
-            me.clearInvalid();
-        };
-    },
-    
-    getMinTime: function() {
-        var me = this,
-            dt;
-        
-        try { dt = new Date(me.minValue) } catch (e) {};
-        
-        return Ext.isDate(dt) && !isNaN( dt.getTime() ) ? dt.getHours()   * 3600 + 
-                                                          dt.getMinutes() * 60
-             :                                            -Infinity;
-    },
-    
-    getMaxTime: function() {
-        var me = this,
-            dt;
-
-        try { dt = new Date(me.maxValue) } catch (e) {};
-        
-        return Ext.isDate(dt) && !isNaN( dt.getTime() ) ? dt.getHours()   * 3600 + 
-                                                          dt.getMinutes() * 60
-             :                                            +Infinity;
-    },
-    
-    validateRange: function(range) {
-        var me     = this,
-            rsep   = me.displayRangeSeparator,
-            format = Ext.String.format,
-            start, end,
-            isValid;
-        
-        isValid = me.callParent(arguments);
-        
-        if ( isValid !== true ) {
-            return isValid;
-        };
-        
-        // Should be safe by this point
-        start = me.parseDate( range[0] );
-        end   = me.parseDate( range[1] );
-        
-        if ( start.getHours() * 3600 + start.getMinutes() * 60 < me.getMinTime() ) {
-            return format(me.minText, range[0]);
-        };
-        
-        if ( end.getHours() * 3600 + end.getMinutes() * 60 > me.getMaxTime() ) {
-            return format(me.maxText, range[1]);
-        };
-        
-        if ( start.getMinutes() % me.increment !== 0 || end.getMinutes() % me.increment !== 0 ) {
-            return format(me.invalidIncrementText, me.increment);
-        };
-        
-        return true;
-    },
-    
-    validateDate: function(value) {
-        var me     = this,
-            isDate = Ext.isDate,
-            format = Ext.String.format,
-            dt;
-        
-        try { dt = me.parseDate(value); } catch (e) {};
-        
-        if ( !isDate(dt) ) {
-            return format(me.invalidText, value, me.format);
-        };
-        
-        if ( dt.getHours() * 3600 + dt.getMinutes() * 60 < me.getMinTime() ) {
-            return format(me.minText, value);
-        };
-        
-        if ( dt.getHours() * 3600 + dt.getMinutes() * 60 > me.getMaxTime() ) {
-            return format(me.maxText, value);
-        };
-        
-        if ( dt.getMinutes() % me.increment !== 0 ) {
-            return format(me.invalidIncrementText, me.increment);
-        };
-        
-        return true;
-    },
-    
-    formatSubmitValue: function(value) {
-        var me  = this,
-            fmt = me.submitFormat || me.format,
-            dt, res;
-        
-        try {
-            dt  = me.parseDate(value);
-            res = Ext.Date.format(dt, fmt);
-        } catch (e) {};
-        
-        return Ext.isString(res) ? res : '';
-    },
-    
-    formatDisplayValue: function(value) {
-        var me  = this,
-            fmt = me.format,
-            dt, res;
-        
-        try {
-            dt  = me.parseDate(value);
-            res = Ext.Date.format(dt, fmt);
-        } catch (e) {};
-        
-        return Ext.isString(res) ? res : value;
-    },
-    
-    formatPickerValue: function(value) {
-        var me           = this,
-            hourValues   = me.hourValues,
-            minuteValues = me.minuteValues,
-            indexOf      = Ext.Array.indexOf,
-            hours, minutes, dt;
-        
-        if ( value[0] === null || value[1] === null || value[2] === null ) {
-            return '';
-        };
-        
-        try {
-            hours   = (value[0] * 12) + indexOf(hourValues, value[1]);
-            minutes = indexOf(minuteValues, value[2]) * 15;
-            
-            dt = new Date();
-            dt.setHours(hours, minutes, 0, 0);
-        } catch (e) { return };
-        
-        return Ext.Date.format(dt, me.format);
-    },
-    
-    expandValues: function(text) {
-        var me           = this,
-            rsep         = me.rangeSeparatorRE,
-            increment    = me.increment,
-            hourValues   = me.hourValues,
-            minuteValues = me.minuteValues,
-            fmt          = me.format,
-            mfloor       = Math.floor,
-            values, times, result;
-        
-        if ( text === '' || text === null ) {
-            return [ [ null, null, null ], [ null, null, null ] ];
-        };
-        
-        values = me.splitValues(text, rsep);
-        times  = Ext.Array.map(values, Ext.bind(me.parseDate, me, [ fmt ], 1));
-        result = Ext.Array.map(times, function(dt) {
-            var hours, minutes, hrIdx, mnIdx;
-            
-            hours   = dt.getHours();
-            minutes = dt.getMinutes();
-
-            hrIdx   = hours > 11 ? hours - 12 : hours;
-            mnIdx   = mfloor(minutes / 15);
-            
-            return [
-                hours > 11 ? 1 : 0,
-                hourValues[hrIdx],
-                minuteValues[mnIdx]
-            ];
-        });
-        
-        return result;
-    }
-});
-                /*
- * Mixin that allows multiple values or ranges of values of the same type to be entered in
- * a field.
- *
- * Version 0.99, compatible with Ext JS 4.1.
- *  
- * Copyright (c) 2011-2012 Alexander Tokarev.
- *  
- * This code is licensed under the terms of the Open Source LGPL 3.0 license.
- * Commercial use is permitted to the extent that the code/component(s) do NOT
- * become part of another Open Source or Commercially licensed development library
- * or toolkit without explicit permission.
- * 
- * License details: http://www.gnu.org/licenses/lgpl.html
- */
-
-Ext.define('Ext.ux.form.field.MultiValue', {
-    /**
-     * @private Mixin indicator.
-     */
-    isMultiValued: true,
-    
-    /**
-     * @cfg {Boolean} [multiValue=false] Determines if multiple values are allowed in
-     * the field.
-     */
-    multiValue: false,
-    
-    /**
-     * @cfg {RegExp} valueSeparator Regular expression used to separate input values
-     * from each other.
-     */
-    valueSeparatorRE: /[;,]\s*/,
-    
-    /**
-     * @cfg {RegExp} rangeSeparator Regular expression used to separate start and end
-     * of a range.
-     */
-    rangeSeparatorRE: /\s*-\s*/,
-
-    /**
-     * @cfg {RegExp} valuePattern Regular expression used to validate one value or
-     * part of a range.
-     */
-    valuePatternRE: /\d+/,
-    
-    /**
-     * @cfg {String} displayValueSeparator Character or string used to separate
-     * displayed values from each other. It may differ from both valueSeparator regex
-     * and submitValueSeparator.
-     */
-	displayValueSeparator: ', ',
-	
-	/**
-	 * @cfg {String} displayRangeSeparator Character or string used to denote a range
-	 * of values when displaying. It is placed between range start and end.
-	 */
-	displayRangeSeparator: '-',
-    
-    /**
-     * @cfg {String} submitValueSeparator Character or string used to separate
-     * submitted values from each other. It may differ from valueSeparator regex.
-     */
-    submitValueSeparator: ';',
-    
-    /**
-     * @cfg {String} submitRangeSeparator Character or string used to denote a range;
-     * it is placed between range start and end upon submitting values.
-     */
-    submitRangeSeparator: '-',
-    
-    constructor: function(config) {
-        var me = this,
-            config = config || {};
-        
-        Ext.apply(me, config);
-        
-        me.regex = me.multiValue ? me.initMultiRegex()
-                 :                 me.initSingleRegex()
-                 ;
-        
-        me.callParent(arguments);
-    },
-    
-    /**
-     * @private Creates regex for checking single value when multiValue is off.
-     */
-    initSingleRegex: function() {
-        var me = this,
-            value;
-        
-        value = me.valueRegex();
-        
-        return new RegExp( '^' + value + '$' );
-    },
-    
-    /**
-     * @private Creates regex for checking multiple values and ranges when multiValue is on.
-     */
-    initMultiRegex: function() {
-        var me = this,
-            value, vsep, rsep, range, valueOrRange;
-        
-        value = me.valueRegex();
-        
-        // Normalize regexen
-        me.rangeSeparatorRE = new RegExp(me.rangeSeparatorRE);
-        me.valueSeparatorRE = new RegExp(me.valueSeparatorRE);
-        
-        rsep  = me.rangeSeparatorRE.source;
-        vsep  = me.valueSeparatorRE.source;
-        
-        range = value + rsep + value;
-        valueOrRange = '(' + value + '|' + range + ')';
-        
-        return new RegExp(
-            '^' +
-                '(' + valueOrRange + ')'
-                +
-                '(' + vsep + valueOrRange + ')*'
-                +
-            '$'
-        );
-    },
-    
-    /**
-     * @private Normalizes single value regex.
-     */
-    valueRegex: function() {
-        var me = this,
-            vp;
-            
-        me.valuePatternRE = vp = new RegExp(me.valuePatternRE);
-        
-        return vp.source;
-    },
-    
-    /**
-     * @private Formats single value for submission.
-     */
-    formatSubmitValue: function(value) {
-        // Does nothing in mixin
-        return value;
-    },
-    
-    /**
-     * @private Formats single range of values for submission.
-     */
-    formatSubmitRange: function(range, rsep) {
-        var me = this,
-            start, end;
-
-        start = me.formatSubmitValue( range[0] );
-        end   = me.formatSubmitValue( range[1] );
-        
-        return start + rsep + end;
-    },
-    
-    /**
-     * @private Formats current values as a string for submission.
-     */
-    formatSubmit: function(values, rsep, vsep) {
-        var me = this,
-            multi = me.multiValue,
-            valsep = me.valueSeparatorRE,
-            ransep = me.rangeSeparatorRE,
-            items, isStr, doesMatch;
-        
-        items = me.splitValues(values, valsep);
-        
-        for ( var i = 0, l = items.length; i < l; i++ ) {
-            var item = items[i],
-                vr;
-                
-            vr = me.splitValues(item, ransep);
-            
-            items[i] = vr.length > 1 ? me.formatSubmitRange(vr, rsep || me.submitRangeSeparator)
-                     :                 me.formatSubmitValue(vr)
-                     ;
-        };
-        
-        values = items.join(vsep || me.submitValueSeparator);
-        
-        return values;
-    },
-    
-    /**
-     * @private Splits string of values using provided normalized regex.
-     * Always returns an array.
-     */
-    splitValues: function(values, regex) {
-        var me = this;
-        
-        return me.multiValue && Ext.isString(values) &&
-               regex.source !== '' && values.match(regex)   ? values.split(regex)
-             :                                                [ values ]
-             ;
-    },
-
-    /**
-     * @private Formats single value for displaying in input field.
-     */
-    formatDisplayValue: function(value) {
-        return Ext.isString(value) ? value : value.toString();  // Trying to be generic
-    },
-    
-    /**
-     * @private Formats single range of values for displaying in input field.
-     */
-    formatDisplayRange: function(range, rsep) {
-        var me = this,
-            start, end;
-        
-        start = me.formatDisplayValue( range[0] );
-        end   = me.formatDisplayValue( range[1] );
-        
-        return start + rsep + end;
-    },
-    
-    /**
-     * @private Formats array of values for displaying in input field. This method is mostly
-     * useful for using with pickers that return raw objects and arrays of objects.
-     */
-    formatDisplay: function(values, rsep, vsep) {
-        var me = this,
-            multi = me.multiValue,
-            results = [];
-        
-        if ( !multi ) {
-            return me.formatDisplayValue(values[0]);
-        };
-        
-        for ( var i = 0, l = values.length; i < l; i++ ) {
-            var value = values[i];
-            
-            if ( Ext.isArray(value) ) {
-                results.push( me.formatDisplayRange(value, rsep || me.displayRangeSeparator) );
-            }
-            else {
-                results.push( me.formatDisplayValue(value) );
-            };
-        };
-        
-        return results.join(vsep || me.displayValueSeparator);
-    }
-});
-                /*
- * Date picker with support for multiple selections.
- *
- * Version 0.99, compatible with Ext JS 4.1.
- *  
- * Copyright (c) 2011-2012 Alexander Tokarev.
- *  
- * This code is licensed under the terms of the Open Source LGPL 3.0 license.
- * Commercial use is permitted to the extent that the code/component(s) do NOT
- * become part of another Open Source or Commercially licensed development library
- * or toolkit without explicit permission.
- * 
- * License details: http://www.gnu.org/licenses/lgpl.html
- */
-
-Ext.define('Ext.ux.picker.MultiDate', {
-    extend: 'Ext.picker.Date',
-    alias:  'widget.multidatepicker',
-    
-    alternateClassName: [ 'Ext.picker.MultiDate', 'Ext.MultiDatePicker' ],
-    
-    renderTpl: [
-        '<div class="{cls}" id="{id}-innerEl" role="grid">',
-            '<div role="presentation" class="{baseCls}-header">',
-                '<div class="{baseCls}-prev"><a id="{id}-prevEl" href="#" role="button" title="{prevText}"></a></div>',
-                '<div class="{baseCls}-month" id="{id}-middleBtnEl">{%this.renderMonthBtn(values, out)%}</div>',
-                '<div class="{baseCls}-next"><a id="{id}-nextEl" href="#" role="button" title="{nextText}"></a></div>',
-            '</div>',
-            '<table id="{id}-eventEl" class="u{baseCls}-inner" cellspacing="0" role="presentation">',
-                '<thead role="presentation"><tr role="presentation">',
-                    '<tpl for="dayNames">',
-                        '<th role="columnheader" title="{.}"><span>{.:this.firstInitial}</span></th>',
-                    '</tpl>',
-                '</tr></thead>',
-                '<tbody role="presentation"><tr role="presentation">',
-                    '<tpl for="days">',
-                        '{#:this.isEndOfWeek}',
-                        '<td role="gridcell" id="{[Ext.id()]}">',
-                            '<a role="presentation" href="#" hidefocus="on" class="{parent.baseCls}-date" tabIndex="1">',
-                                '<em role="presentation"><span role="presentation"></span></em>',
-                            '</a>',
-                        '</td>',
-                    '</tpl>',
-                '</tr></tbody>',
-            '</table>',
-            '<div id="{id}-footerEl" role="presentation" class="{baseCls}-footer">',
-                '<tpl if="this.showToday">',
-                    '{%this.renderTodayBtn(values, out)%}',
-                '<tpl else>',
-                    '{%this.renderOkBtn(values, out)%}',
-                    '{%this.renderCancelBtn(values, out)%}',
-                    '{%this.renderClearBtn(values, out)%}',
-                '</tpl>',
-            '</div>',
-        '</div>',
-        {
-            firstInitial: function(value) {
-                return Ext.picker.Date.prototype.getDayInitial(value);
-            },
-            isEndOfWeek: function(value) {
-                // convert from 1 based index to 0 based
-                // by decrementing value once.
-                value--;
-                var end = value % 7 === 0 && value !== 0;
-                return end ? '</tr><tr role="row">' : '';
-            },
-            renderTodayBtn: function(values, out) {
-                Ext.DomHelper.generateMarkup(values.$comp.todayBtn.getRenderTree(), out);
-            },
-            renderOkBtn: function(values, out) {
-                Ext.DomHelper.generateMarkup(values.$comp.okBtn.getRenderTree(), out);
-            },
-            renderCancelBtn: function(values, out) {
-                Ext.DomHelper.generateMarkup(values.$comp.cancelBtn.getRenderTree(), out);
-            },
-            renderClearBtn: function(values, out) {
-                Ext.DomHelper.generateMarkup(values.$comp.clearBtn.getRenderTree(), out);
-            },
-            renderMonthBtn: function(values, out) {
-                Ext.DomHelper.generateMarkup(values.$comp.monthBtn.getRenderTree(), out);
-            }
-        }
-    ],
-    
-    nextText:      Ext.isMac ? 'Next Month (&#x2318;&#x2192;)' : 'Next Month (Control+Right)',
-    prevText:      Ext.isMac ? 'Previous Month (&#x2318&#x2190;)' : 'Previous Month (Control+Left)',
-    monthYearText: Ext.isMac ? 'Choose a month (&#x2318 + &#x2191;/&#x2193; to move years)' : 'Choose a month (Control+Up/Down to move years)',
-    
-    /**
-     * @cfg {String} okText OK button text.
-     */
-    okText:        'OK',
-    
-    /**
-     * @cfg {String} okTooltip OK button tooltip text.
-     */
-    okTooltip:     Ext.isMac ? 'Confirm selection (⏎)' : 'Confirm selection (Enter)',
-    
-    /**
-     * @cfg {String} cancelText Cancel button text.
-     */
-    cancelText:    'Cancel',
-    
-    /**
-     * @cfg {String} cancelTooltip Cancel button tooltip text.
-     */
-    cancelTooltip: Ext.isMac ? 'Cancel selection (⎋)' : 'Cancel selection (Escape)',
-    
-    /**
-     * @cfg {String} clearText 'Clear selection' button text.
-     */
-    clearText:     'Clear',
-    
-    /**
-     * @cfg {String} clearTooltip 'Clear selection' button tooltip text.
-     */
-    clearTooltip:  Ext.isMac ? 'Clear selection (⌘⌫)' : 'Clear selection (Ctrl+Backspace)',
-    
-    /**
-     * @cfg {Int[]/Boolean} workDays Array of 0-based week day numbers that represent
-     * work week for given locale. Defaults to Monday-Friday. Set to 'false' to turn
-     * this feature off.
-     */
-    workDays: [ 1, 2, 3, 4, 5 ],
-    
-    showToday: false,
-    
-    initComponent: function() {
-        var me = this,
-            wd = me.workDays;
-        
-        me.callParent(arguments);
-        
-        // Active cell class is different
-        me.activeCls = 'ux-datepicker-active';
-        
-        me.selDates = [];
-        
-        if ( wd && Ext.isArray(wd) ) {
-            var hash = {
-                0: false, 1: false, 2: false, 3: false, 4: false, 5: false, 6: false
-            };
-            
-            for ( var i = 0, l = wd.length; i < l; i++ ) {
-                hash[ wd[i] ] = true;
-            };
-            
-            me.workDaysHash = hash;
-        }
-        else {
-            me.workDaysHash = {
-                0: true, 1: true, 2: true, 3: true, 4: true, 5: true, 6: true
-            };
-        };
-    },
-    
-    beforeRender: function() {
-        var me = this;
-        
-        me.callParent(arguments);
-        
-        if ( !me.showToday ) {
-            Ext.destroy(me.todayBtn);
-
-            var layout = me.getComponentLayout();
-        
-            me.okBtn = new Ext.button.Button({
-                ownerCt:     me,
-                ownerLayout: layout,
-                text:        me.okText,
-                tooltip:     me.okTooltip,
-                handler:     me.onOkButton,
-                scope:       me
-            });
-            
-            me.cancelBtn = new Ext.button.Button({
-                ownerCt:     me,
-                ownerLayout: layout,
-                text:        me.cancelText,
-                tooltip:     me.cancelTooltip,
-                handler:     me.onCancelButton,
-                scope:       me
-            });
-            
-            me.clearBtn = new Ext.button.Button({
-                ownerCt:     me,
-                ownerLayout: layout,
-                text:        me.clearText,
-                tooltip:     me.clearTooltip,
-                handler:     me.clearSelection,
-                scope:       me
-            });
-        };
-    },
-    
-    finishRenderChildren: function() {
-        var me = this;
-        
-        me.callParent();
-        
-        if ( !me.showToday ) {
-            me.okBtn.finishRender();
-            me.cancelBtn.finishRender();
-            me.clearBtn.finishRender();
-        };
-    },
-    
-    initEvents: function() {
-        var me = this,
-            evEl = me.eventEl;
-        
-        me.callParent(arguments);
-        
-        // Override default key handlers
-        evEl.addKeyListener(Ext.EventObject.ENTER, me.onOkButton,     me);
-        evEl.addKeyListener(Ext.EventObject.ESC,   me.onCancelButton, me);
-        evEl.addKeyListener(Ext.EventObject.SPACE, me.handleSpacebar, me);
-        evEl.addKeyListener({ key: Ext.EventObject.BACKSPACE, ctrl: true }, me.clearSelection, me);
-    },
-    
-    /**
-     * @private Assigns values and refreshes the picker.
-     */
-    setValue: function(values) {
-        var me = this;
-        
-        function getClearTime(d) { return Ext.Date.clearTime(d).getTime() };
-        
-        me.selDates = Ext.isArray(values) ? Ext.Array.map(values, getClearTime)
-                    :                      [ getClearTime(values) ]
-                    ;
-        
-        me.update(me.selDates);
-    },
-    
-    /**
-     * @private Returns current selection range.
-     */
-    getValue: function() {
-        var me = this;
-        
-        return Ext.Array.map(me.selDates, function(t) { return new Date(t) });
-    },
-    
-    onOkButton: function() {
-        var me = this,
-            handler = me.handler;
-        
-        if ( !me.disabled ) {
-            var value = me.getValue();
-            
-            me.fireEvent('select', me, value);
-        
-            if ( handler ) {
-                handler.call(me.scope || me, me, value);
-            };
-            
-            me.onSelect();
-            me.clearSelection();
-        };
-    },
-    
-    onCancelButton: function() {
-        var me = this;
-        
-        me.clearSelection();
-        me.pickerField.collapse();
-    },
-    
-    clearSelection: function() {
-        var me = this,
-            cells = me.cells,
-            aCls = me.activeCls,
-            sCls = me.selectedCls;
-        
-        // Clear the selection
-        me.selDates = [];
-        me.rangeSelection = false;
-        cells.removeCls(aCls);
-        cells.removeCls(sCls);
-        
-        me.update(Ext.Date.clearTime( new Date() ));
-    },
-
-    handleDateClick : function(event, target) {
-        var me = this,
-            selDates = me.selDates,
-            el, dv, dt;
-
-        event.stopEvent();
-        
-        el = Ext.fly(target.parentElement);
-        dv = target.dateValue;
-        
-        if ( event.shiftKey && !event.ctrlKey ) {           // Select work week
-            dt = me.toggleWeekSelection(el);
-        }
-        else if ( event.ctrlKey ) {        // Select range or work range (no toggling)
-            if ( !me.rangeSelection ) {    // Start selection
-                me.rangeSelection = dv;
-                dt = me.toggleDateSelection(el, true, dv);
-            }
-            else {          // End selection
-               dt = me.selectRange(me.rangeSelection, dv, event.shiftKey);
-               me.rangeSelection = false;
-            };
-        }
-        else {                                      // Select single day
-            dt = me.toggleDateSelection(el, undefined, dv);
-        };
-        
-        if ( dt ) {
-            me.update(selDates);
-        };
-        
-        // Set active date, too
-        me.update( new Date(dv) );
-    },
-
-    handleSpacebar: function(keycode, event) {
-        var me       = this,
-            selDates = me.selDates,
-            cells    = me.cells,
-            activeDate, activeCell, activeIdx, dt;
-        
-        activeDate = me.activeDate.getTime();
-        activeIdx  = me.getCellIndex(activeDate);
-        
-        if ( activeIdx == -1 ) {
-            return;
-        };
-        
-        activeCell = cells.item(activeIdx);
-        
-        dt = event.shiftKey ? me.toggleWeekSelection(activeCell, activeIdx)
-           :                  me.toggleDateSelection(activeCell, undefined, activeDate)
-           ;
-        
-        if ( dt ) {
-            me.update(selDates);
-        };
-    },
-    
-    /**
-     * @private Returns cell index by date value.
-     */
-    getCellIndex: function(value) {
-        var me = this,
-            cells = me.cells,
-            index;
-            
-        // This is suboptimal but I don't know a way to do it otherwise
-        // without affecting me.cells.
-        cells.each(function(el, c, idx) {
-            if ( !index && el.down('a').getAttribute('dateValue') === value ) {
-                index = idx;
-            };
-        });
-        
-        return index === undefined ? -1 : index;
-    },
-    
-    selectRange: function(start, end, workWeek) {
-        var me       = this,
-            selDates = me.selDates,
-            wdHash   = me.workDaysHash,
-            add      = Ext.Date.add,
-            DAY      = Ext.Date.DAY,
-            contains = Ext.Array.contains,
-            include  = Ext.Array.include,
-            tmp, dt, dv;
-        
-        // JS is ugly.
-        if ( start > end ) {
-            tmp   = start;
-            start = end;
-            end   = tmp;
-        };
-        
-        // If start date falls on a weekend we shouldn't allow it
-        // to be selected
-        Ext.Array.remove( selDates, new Date(start).getTime() );
-        
-        DATE:
-        for ( dt = new Date(start), dv = dt.getTime();
-              dv <= end;
-              dt = add(dt, DAY, 1), dv = dt.getTime() )
-        {
-            if ( workWeek && !wdHash[ dt.getDay() ] ) {
-                continue DATE;
-            };
-            
-            include(selDates, dv);
-        };
-        
-        return true;
-    },
-    
-    toggleWeekSelection: function(el, index) {
-        var me          = this,
-            cells       = me.cells,
-            selectedCls = me.selectedCls,
-            disabledCls = me.disabledCellCls,
-            workDays    = me.workDays,
-            selected, dayNo, firstDay;
-        
-        if ( index === undefined ) {
-            index = me.getCellIndex( el.down('a').getAttribute('dateValue') );
-        };
-        
-        if ( !me.disabled && !el.hasCls(disabledCls) ) {
-            selected = el.hasCls(selectedCls);
-            dayNo    = index % 7;
-            firstDay = index - dayNo;
-            
-            // We're toggling only work week. If there's a need to toggle
-            // whole week, adjust workDays to have values [0..6].
-            if ( Ext.Array.contains(workDays, dayNo) ) {
-                var i = firstDay + workDays[0],
-                    l = firstDay + workDays[ workDays.length - 1 ];
+                {
+                xtype: 'button',
+                id:    'validateButton',
+                text:  'Get Report',
+                scope: App,
+                handler: function() {
+                    var form, field;
                     
-                for (; i <= l; i++ ) {
-                    me.toggleDateSelection( cells.item(i), !selected );
-                };
-            };
-        };
-        
-        return true;
-    },
-    
-    toggleDateSelection: function(el, state, dv) {
-        var me = this,
-            selDates = me.selDates,
-            selectedCls = me.selectedCls,
-            disabledCls = me.disabledCellCls,
-            selected, dv;
-        
-        if ( dv === undefined ) {
-            dv = el.down('a').getAttribute('dateValue');
-        };
-        
-        if ( !me.disabled && !el.hasCls(disabledCls) && dv ) {
-            selected = state !== undefined ? !state : el.hasCls(selectedCls);
-            
-            if ( selected ) {
-                Ext.Array.remove(selDates, dv);
-            }
-            else {
-                Ext.Array.include(selDates, dv);
-            };
-            
-            return el;
-        };
-        
-        return undefined;
-    },
-    
-    selectedUpdate: function(dates, active) {
-        var me          = this,
-            cells       = me.cells,
-            selectedCls = me.selectedCls,
-            activeCls   = me.activeCls,
-            visible, cancelFocus;
-        
-        visible     = me.isVisible();
-        cancelFocus = !me.focusOnSelect;
-        
-        cells.each( function(el) {
-            var picker = this,
-                dv;
-            
-            el.removeCls([activeCls, selectedCls]);
-            
-            dv = el.down('a').getAttribute('dateValue');
-            
-            if ( dv === active ) {
-                picker.getEl().set({ 'aria-activedescendant': el.id });
-                
-                el.addCls(activeCls);
-                
-                if ( visible && !cancelFocus ) {
-                    Ext.fly( el.down('a') ).focus(50);
-                };
-            };
-            
-            if ( Ext.Array.contains(dates, dv) ) {
-                el.addCls(selectedCls);
-            };
-        }, me);
-    },
-    
-    update: function(dates, forceRefresh) {
-        var me = this,
-            selDates,
-            active = me.activeDate,
-            newActive;
-        
-        if ( Ext.isArray(dates) ) {
-            me.selDates = dates;
-        };
-        
-        selDates = me.selDates || [];
-        
-        newActive = Ext.isDate(dates)       ? dates
-                  :                           active
-                  ;
-        
-        if ( me.rendered ) {
-            var am = active    && active.getMonth(),
-                ay = active    && active.getFullYear(),
-                nm = newActive && newActive.getMonth(),
-                ny = newActive && newActive.getFullYear();
-                
-            me.activeDate = newActive;
+                    form  = Ext.getCmp('formPanel').getForm();
+                    field = Ext.getCmp('multiDateField');
+                    
+                    if ( form.isValid() ) {
+                        var values = form.getValues();
+                        var valuesString = field.getSubmitValue();
+                        var valuesArray = field.expandValues(valuesString, 'Y-m-d', ';', '/');
 
-            if ( !forceRefresh && am == nm && ay == ny ) {
-                me.selectedUpdate(selDates, newActive.getTime());
-            }
-            else {
-                me.fullUpdate(newActive, active);
-                me.selectedUpdate(selDates, newActive.getTime());
-            };
-        };
-        
-        return me;
-    },
-    
-    beforeDestroy: function() {
-        var me = this;
-        
-        if ( me.rendered ) {
-            Ext.destroy(
-                me.okBtn,
-                me.cancelBtn,
-                me.clearBtn
-            );
+                        App.checkboxValue = Ext.getCmp('weekendCheckbox').getValue();
+
+                        App.excludedDates =  _.map(valuesArray, function(date) {
+                            return date.toString();
+                        });                     
+
+                        App._runReport();                    
+                    }
+                    else {
+                        console.log("The form is invalid.");
+                        //alert to the screen?
+                        App._runReport(); 
+                    };
+                }
+            }],
             
-            delete me.selDates;
-        };
-        
-        me.callParent(arguments);
-    }
-});
-                /*
- * Picker for selecting a range of months.
- *
- * Version 0.99, compatible with Ext JS 4.1.
- *  
- * Copyright (c) 2011-2012 Alexander Tokarev.
- *  
- * This code is licensed under the terms of the Open Source LGPL 3.0 license.
- * Commercial use is permitted to the extent that the code/component(s) do NOT
- * become part of another Open Source or Commercially licensed development library
- * or toolkit without explicit permission.
- * 
- * License details: http://www.gnu.org/licenses/lgpl.html
- */
-
-Ext.define('Ext.ux.picker.MultiMonth', {
-    extend: 'Ext.picker.Month',
-    alias:  'widget.multimonthpicker',
-    
-    alternateClassName: [
-        'Ext.picker.MultiMonth',
-        'Ext.MultiMonthPicker'
-    ],
-    
-    childEls: [
-        'bodyEl', 'prevEl', 'nextEl', 'buttonsEl', 'monthEl', 'yearEl',
-        'eventEl', 'bodyElEnd', 'prevElEnd', 'nextElEnd'
-    ],
-
-    renderTpl: [
-        '<div class="{uxCls}-table">',
-            '<div class="{uxCls}-header {uxCls}-table-row{ie}">',
-                '<div class="{uxCls}-header-item{ie}">{startingMonthText}</div>',
-                '<div class="{uxCls}-header-item{ie}">{endingMonthText}</div>',
-            '</div>',
-            '<div id="{id}-eventEl" class="{uxCls}-table-row{ie}">',
-                '<div id="{id}-bodyEl" class="{baseCls}-body {uxCls}-table-cell{ie}">',
-                  '<div class="{baseCls}-months">',
-                      '<tpl for="months">',
-                          '<div class="{parent.baseCls}-item {parent.baseCls}-month"><a href="#" hidefocus="on">{.}</a></div>',
-                      '</tpl>',
-                  '</div>',
-                  '<div class="{baseCls}-years">',
-                      '<div class="{baseCls}-yearnav">',
-                          '<button id="{id}-prevEl" class="{baseCls}-yearnav-prev"></button>',
-                          '<button id="{id}-nextEl" class="{baseCls}-yearnav-next"></button>',
-                      '</div>',
-                      '<tpl for="years">',
-                          '<div class="{parent.baseCls}-item {parent.baseCls}-year"><a href="#" hidefocus="on">{.}</a></div>',
-                      '</tpl>',
-                  '</div>',
-                  '<div class="' + Ext.baseCSSPrefix + 'clear"></div>',
-                '</div>',
-                '<div id="{id}-bodyElEnd" class="{baseCls}-body {uxCls}-table-cell{ie} {uxCls}-separator">',
-                  '<div class="{baseCls}-months">',
-                      '<tpl for="months">',
-                          '<div class="{parent.baseCls}-item {parent.baseCls}-month"><a href="#" hidefocus="on">{.}</a></div>',
-                      '</tpl>',
-                  '</div>',
-                  '<div class="{baseCls}-years">',
-                      '<div class="{baseCls}-yearnav">',
-                          '<button id="{id}-prevElEnd" class="{baseCls}-yearnav-prev"></button>',
-                          '<button id="{id}-nextElEnd" class="{baseCls}-yearnav-next"></button>',
-                      '</div>',
-                      '<tpl for="years">',
-                          '<div class="{parent.baseCls}-item {parent.baseCls}-year"><a href="#" hidefocus="on">{.}</a></div>',
-                      '</tpl>',
-                  '</div>',
-                  '<div class="' + Ext.baseCSSPrefix + 'clear"></div>',
-                '</div>',
-            '</div>',
-        '</div>',
-        '<tpl if="showButtons">',
-            '<div id="{id}-buttonsEl" class="{baseCls}-buttons">{%',
-                'var me        = values.$comp,',
-                    'okBtn     = me.okBtn,',
-                    'cancelBtn = me.cancelBtn,',
-                    'clearBtn  = me.clearBtn;',
-                
-                'okBtn.ownerLayout = cancelBtn.ownerLayout = clearBtn.ownerLayout = me.componentLayout;',
-                'okBtn.ownerCt     = cancelBtn.ownerCt     = clearBtn.ownerCt     = me;',
-                
-                'Ext.DomHelper.generateMarkup(okBtn.getRenderTree(), out);',
-                'Ext.DomHelper.generateMarkup(cancelBtn.getRenderTree(), out);',
-                'Ext.DomHelper.generateMarkup(clearBtn.getRenderTree(), out);',
-            '%}</div>',
-        '</tpl>'
-    ],
-    
-    /**
-     * @cfg {String} startingMonthText Text to display for starting month header.
-     */
-    startingMonthText: 'Starting Month',
-    
-    /**
-     * @cfg {String} endingMonthText Text to display for ending month header.
-     */
-    endingMonthText: 'Ending Month',
-    
-    /**
-     * @cfg {String} clearText 'Clear' button text.
-     */
-    clearText: 'Clear',
-    
-    /**
-     * @cfg {String} uxCls is additional class for this extension.
-     */
-    uxCls: 'ux-monthpicker',
-    
-    width: 356,
-    
-    initComponent: function() {
-        var me = this;
-        
-        me.activeYearEnd = me.getYearEnd(new Date().getFullYear() - 4, -4);
-        
-        me.callParent();
-
-        if ( me.showButtons ) {
-            me.clearBtn = new Ext.button.Button({
-                text:     me.clearText,
-                handler:  me.onClearClick,
-                scope:    me
-            });
-        };
-    },
-    
-    initEvents: function() {
-        var me = this,
-            evEl = me.eventEl;
-        
-        me.callParent();
-
-        evEl.addKeyListener(Ext.EventObject.ENTER, me.onOkClick,     me);
-        evEl.addKeyListener(Ext.EventObject.ESC,   me.onCancelClick, me);
-    },
-    
-    beforeRender: function() {
-        var me = this,
-            body;
-        
-        Ext.applyIf(me, {
-            renderData: {}
+            renderTo: Ext.getBody()
         });
-        
-        Ext.apply(me.renderData, {
-            uxCls:             me.uxCls,
-            startingMonthText: me.startingMonthText,
-            endingMonthText:   me.endingMonthText,
-            ie:                Ext.isIE6 || Ext.isIE7 ? '-ie' : ''
-        });
-        
-        me.callParent(arguments);
-    },
-    
-    finishRenderChildren: function() {
-        var me = this;
-        
-        me.callParent();
-        
-        if ( me.showButtons ) {
-            me.clearBtn.finishRender();
-        };
-    },
-    
-    afterRender: function() {
-        var me = this,
-            body = me.bodyElEnd,
-            buttonsEl = me.buttonsEl;
-        
-        me.mon(body, 'click',    me.onBodyClick, me);
-        me.mon(body, 'dblclick', me.onBodyClick, me);
-            
-        me.yearsEnd  = body.select('.' + me.baseCls + '-year a');
-        me.monthsEnd = body.select('.' + me.baseCls + '-month a');
-        
-        me.backRepeaterEnd = Ext.create('Ext.util.ClickRepeater', me.prevElEnd, {
-            handler: Ext.Function.bind(me.adjustYearEnd, me, [-me.totalYears])
-        });
-        me.prevElEnd.addClsOnOver(me.baseCls + '-yearnav-prev-over');
-
-        me.nextRepeaterEnd = Ext.create('Ext.util.ClickRepeater', me.nextElEnd, {
-            handler: Ext.Function.bind(me.adjustYearEnd, me, [me.totalYears])
-        });
-        me.nextElEnd.addClsOnOver(me.baseCls + '-yearnav-next-over');
-        
-        me.callParent();
-    },
-    
-    clearValues: function() {
-        var me = this,
-            now;
-        
-        now = Ext.Date.clearTime( new Date() );
-        
-        me.value = [
-            [ now.getMonth(), now.getFullYear() ],
-            [ now.getMonth(), now.getFullYear() ]
-        ];
-        me.activeYear = me.activeYearEnd = me.getYear(now.getFullYear() - 4, -4);
-
-        me.updateBody();
-        
-        return me.value;
-    },
-    
-    setValue: function(values) {
-        var me = this,
-            year, active;
-        
-        me.value = values || me.clearValues();
-        
-        year   = me.getYear(null);
-        active = me.activeYear;
-        if ( year !== null ) {
-            if ( year < active || year > active + me.yearOffset ) {
-                me.activeYear = year - me.yearOffset + 1;
-            };
-        };
-        
-        year   = me.getYearEnd(null);
-        active = me.activeYearEnd;
-        if ( year !== null ) {
-            if ( year < active || year > active + me.yearOffset ) {
-                me.activeYearEnd = year - me.yearOffset + 1;
-            };
-        };
-        
-        me.updateBody();
-    },
-    
-    getYearsEnd: function(){
-        var me = this,
-            offset = me.yearOffset,
-            start = me.activeYearEnd,
-            end = start + offset,
-            i = start,
-            years = [];
-
-        for (; i < end; ++i) {
-            years.push(i, i + offset);
-        }
-
-        return years;
-    },
-
-    updateBody: function(){
-        var me = this;
-
-        if (me.rendered) {
-            // Start selector
-            me._updateBody({
-                years: me.years,
-                months: me.months,
-                cls: me.selectedCls,
-                yearNumbers: me.getYears(),
-                value: me.getYear(null),
-                month: me.getMonth('start')
-            });
-            
-            // End selector
-            me._updateBody({
-                years: me.yearsEnd,
-                months: me.monthsEnd,
-                cls: me.selectedCls,
-                yearNumbers: me.getYearsEnd(),
-                value: me.getYearEnd(null),
-                month: me.getMonth('end')
-            });
-        }
-    },
-    
-    _updateBody: function(p) {
-        var me = this,
-            years = p.years,
-            months = p.months,
-            cls = p.cls,
-            yearNumbers = p.yearNumbers,
-            monthOffset = me.monthOffset,
-            value = p.value,
-            month = p.month;
-        
-        years.removeCls(cls);
-        months.removeCls(cls);
-        years.each(function(el, all, index){
-            var year = yearNumbers[index];
-            el.dom.innerHTML = year;
-            if (year == value) {
-                el.dom.className = cls;
-                el.focus(50);
-            }
-        });
-        if (month !== null) {
-            if (month < monthOffset) {
-                month = month * 2;
-            } else {
-                month = (month - monthOffset) * 2 + 1;
-            }
-            months.item(month).addCls(cls);
-        }
-    },
-    
-    getMonth: function(which) {
-        var me = this,
-            month;
-        
-        try       { month = which == 'start' ? me.value[0][0] : me.value[1][0] }
-        catch (e) { month = null };
-        
-        return month;
-    },
-    
-    setMonth: function(which, value) {
-        var me = this;
-        
-        which == 'start' ? me.value[0][0] = value : me.value[1][0] = value;
-    },
-
-    getYear: function(defaultValue, offset) {
-        var me = this,
-            year;
-        
-        try { year = me.value[0][1]; } catch (e) { year = null; };
-        
-        offset = offset || 0;
-        
-        return year === null ? defaultValue : year + offset;
-    },
-
-    getYearEnd: function(defaultValue, offset) {
-        var me = this,
-            year;
-
-        try { year = me.value[1][1]; } catch (e) { year = null; };
-            
-        offset = offset || 0;
-        
-        return year === null ? defaultValue : year + offset;
-    },
-    
-    setYear: function(which, value) {
-        var me = this;
-        
-        which == 'start' ? me.value[0][1] = value : me.value[1][1] = value;
-    },
-    
-    adjustYearEnd: function(offset){
-        var me = this;
-        
-        if ( Ext.typeOf(offset) != 'number' ) {
-            offset = me.totalYears;
-        };
-        
-        me.activeYearEnd += offset;
-        me.updateBody();
-    },
-    
-    onMonthClick: function(target) {
-        var me = this,
-            idx, value,
-            which = 'start';
-        
-        idx = me.months.indexOf(target);
-        
-        if ( idx === -1 ) {
-            idx = me.monthsEnd.indexOf(target);
-            which = 'end';
-        };
-        
-        value = me.resolveOffset(idx, me.monthOffset);
-        
-        me.setMonth(which, value);
-        
-        me.updateBody();
-        
-        me.fireEvent('monthclick', me, me.value);
-        me.fireEvent('select',     me, me.value);
-    },
-    
-    onYearClick: function(target) {
-        var me = this,
-            idx, value,
-            which = 'start';
-        
-        idx = me.years.indexOf(target);
-        
-        if ( idx === -1 ) {
-            idx = me.yearsEnd.indexOf(target);
-            which = 'end';
-        };
-        
-        value = (which == 'start' ? me.activeYear : me.activeYearEnd) +
-                me.resolveOffset(idx, me.yearOffset);
-        
-        me.setYear(which, value);
-        
-        me.updateBody();
-        
-        me.fireEvent('yearclick', me, me.value);
-        me.fireEvent('select',    me, me.value);
-    },
-    
-    onOkClick: function() {
-        this.callParent();
-        this.clearValues();
-    },
-    
-    onCancelClick: function() {
-        this.callParent();
-        this.clearValues();
-    },
-    
-    onClearClick: function() {
-        this.clearValues();
-    },
-
-    beforeDestroy: function() {
-        var me = this;
-        
-        if ( me.rendered ) {
-            Ext.destroy( me.clearBtn );
-        };
-
-        me.yearsEnd = me.monthsEnd = null;
-        
-        Ext.destroyMembers('backRepeaterEnd', 'nextRepeaterEnd', 'eventEl',
-                           'prevElEnd', 'nextElEnd', 'clearBtn');
-        
-        me.callParent();
-    }
-});
-
-                /*
- * Picker for selecting a period of time.
- *
- * Version 0.99, compatible with Ext JS 4.1.
- *  
- * Copyright (c) 2011-2012 Alexander Tokarev.
- *  
- * This code is licensed under the terms of the Open Source LGPL 3.0 license.
- * Commercial use is permitted to the extent that the code/component(s) do NOT
- * become part of another Open Source or Commercially licensed development library
- * or toolkit without explicit permission.
- * 
- * License details: http://www.gnu.org/licenses/lgpl.html
- */
-
-Ext.define('Ext.ux.picker.MultiTime', {
-    extend: 'Ext.Component',
-    alias:  'widget.multitimepicker',
-    
-    alternateClassName: [
-        'Ext.picker.MultiTime',
-        'Ext.MultiTimePicker'
-    ],
-    
-    requires: [
-        'Ext.XTemplate',
-        'Ext.Date',
-        'Ext.button.Button'
-    ],
-    
-    childEls: [
-        'bodyEl', 'eventEl', 'bodyElStart', 'bodyElEnd', 'buttonsEl'
-    ],
-    
-    renderTpl: [
-        '<div id="{id}-bodyEl" class="{baseCls}-table">',
-            '<div class="{baseCls}-header {baseCls}-table-row{ie}">',
-                '<tpl if="multiValue">',
-                    '<div class="{baseCls}-header-item{ie}">{startingTimeText}</div>',
-                    '<div class="{baseCls}-header-item{ie}">{endingTimeText}</div>',
-                '<tpl else>',
-                    '<div class="{baseCls}-header-item{ie}">{selectTimeText}</div>',
-                '</tpl>',
-            '</div>',
-            '<div id="{id}-eventEl" class="{baseCls}-table-row{ie}">',
-                '<div id="{id}-bodyElStart" class="{baseCls}-body {baseCls}-table-cell{ie}">',
-                    '<div class="{baseCls}-table-row{ie}">',
-                        '<div class="{baseCls}-item {baseCls}-ampm"><a href="#" hidefocus="on">{amText}</a></div>',
-                        '<div class="{baseCls}-item {baseCls}-ampm"><a href="#" hidefocus="on">{pmText}</a></div>',
-                    '</div>',
-                    '<div class="{baseCls}-separator">',
-                        '<div class="{baseCls}-separator-stricken {baseCls}-separator-left">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>',
-                        '<div class="{baseCls}-separator-text">{hoursText}</div>',
-                        '<div class="{baseCls}-separator-stricken {baseCls}-separator-right">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>',
-                    '</div>',
-                    '<div class="{baseCls}-table-row{ie}">',
-                        '<tpl for="hours">',
-                            '<div class="{parent.baseCls}-item {parent.baseCls}-hour"><a href="#" hidefocus="on">{.}</a></div>',
-                        '</tpl>',
-                    '</div>',
-                    '<div class="{baseCls}-separator">',
-                        '<div class="{baseCls}-separator-stricken {baseCls}-separator-left">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>',
-                        '<div class="{baseCls}-separator-text">{minutesText}</div>',
-                        '<div class="{baseCls}-separator-stricken {baseCls}-separator-right">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>',
-                    '</div>',
-                    '<div class="{baseCls}-table-row{ie} {baseCls}-minutes">',
-                        '<tpl for="minutes">',
-                            '<div class="{parent.baseCls}-item {parent.baseCls}-minute"><a href="#" hidefocus="on">{.}</a></div>',
-                        '</tpl>',
-                    '</div>',
-                '</div>',
-                '<tpl if="multiValue">',
-                    '<div id="{id}-bodyElEnd" class="{baseCls}-body {baseCls}-table-cell{ie} {baseCls}-inner-border">',
-                        '<div class="{baseCls}-table-row{ie}">',
-                            '<div class="{baseCls}-item {baseCls}-ampm"><a href="#" hidefocus="on">{amText}</a></div>',
-                            '<div class="{baseCls}-item {baseCls}-ampm"><a href="#" hidefocus="on">{pmText}</a></div>',
-                        '</div>',
-                        '<div class="{baseCls}-separator">',
-                            '<div class="{baseCls}-separator-stricken {baseCls}-separator-left">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>',
-                            '<div class="{baseCls}-separator-text">{hoursText}</div>',
-                            '<div class="{baseCls}-separator-stricken {baseCls}-separator-right">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>',
-                        '</div>',
-                        '<div class="{baseCls}-table-row{ie}">',
-                            '<tpl for="hours">',
-                                '<div class="{parent.baseCls}-item {parent.baseCls}-hour"><a href="#" hidefocus="on">{.}</a></div>',
-                            '</tpl>',
-                        '</div>',
-                        '<div class="{baseCls}-separator">',
-                            '<div class="{baseCls}-separator-stricken {baseCls}-separator-left">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>',
-                            '<div class="{baseCls}-separator-text">{minutesText}</div>',
-                            '<div class="{baseCls}-separator-stricken {baseCls}-separator-right">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>',
-                        '</div>',
-                        '<div class="{baseCls}-table-row{ie} {baseCls}-minutes">',
-                            '<tpl for="minutes">',
-                                '<div class="{parent.baseCls}-item {parent.baseCls}-minute"><a href="#" hidefocus="on">{.}</a></div>',
-                            '</tpl>',
-                        '</div>',
-                    '</div>',
-                '</tpl>',
-            '</div>',
-        '</div>',
-        '<div id="{id}-buttonsEl" class="{baseCls}-buttons">{%',
-            'var me        = values.$comp,',
-                'okBtn     = me.okBtn,',
-                'cancelBtn = me.cancelBtn,',
-                'clearBtn  = me.clearBtn;',
-            
-            'okBtn.ownerLayout = cancelBtn.ownerLayout = clearBtn.ownerLayout = me.componentLayout;',
-            'okBtn.ownerCt     = cancelBtn.ownerCt     = clearBtn.ownerCt     = me;',
-            
-            'Ext.DomHelper.generateMarkup(okBtn.getRenderTree(), out);',
-            'Ext.DomHelper.generateMarkup(cancelBtn.getRenderTree(), out);',
-            'Ext.DomHelper.generateMarkup(clearBtn.getRenderTree(), out);',
-        '%}</div>'
-    ],
-    
-	/**
-	 * @cfg {String} selectTimeText Text to display for picker header in single-value mode.
-	 */
-	selectTimeText: 'Select Time',
-	
-    /**
-     * @cfg {String} startingTimeText Text to display for starting time header.
-     */
-    startingTimeText: 'Starting Time',
-    
-    /**
-     * @cfg {String} endingTimeText Text to display for ending time header.
-     */
-    endingTimeText: 'Ending Time',
-    
-    /**
-     * @cfg {String} amText Text to display in AM field.
-     */
-    amText: 'AM',
-    
-    /**
-     * @cfg {String} pmText Text to display in PM field.
-     */
-    pmText: 'PM',
-    
-	/**
-	 * @cfg {String} hoursText Text to display in Hours separator.
-	 */
-	hoursText: 'Hours:',
-	
-	/**
-	 * @cfg {String} minutesText Text to display in Minutes separator.
-	 */
-	minutesText: 'Minutes:',
-
-	/**
-	 * @cfg {String} okText Text to display in OK button.
-	 */
-	okText: 'OK',
-	
-	/**
-	 * @cfg {String} cancelText Text to display in Cancel button.
-	 */
-	cancelText: 'Cancel',
-	
-	/**
-	 * @cfg {String} clearText Text to display in Clear button.
-	 */
-	clearText: 'Clear',
-	
-	/**
-	 * @cfg {String[]} hourValues Array of hour values.
-	 */
-	hourValues: [
-	    '12', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11'
-	],
-	
-	/**
-	 * @cfg {String[]} minuteValues Array of minute values.
-	 */
-	minuteValues: [
-	    '00', '15', '30', '45'
-	],
-	
-    /**
-     * @cfg {String} baseCls The base CSS class to apply to the picker element. Defaults to <tt>'ux-timepicker'</tt>
-     */
-    baseCls: 'ux-timepicker',
-
-    /**
-     * @cfg {String} selectedCls The class to be added to selected items in the picker. Defaults to
-     * <tt>'{baseCls}-selected'</tt>
-     */
-    
-    /**
-     * @cfg {String} disabledCls The class to be added to disabled items in the picker.
-     * Defaults to <tt>'{baseCls}-disabled'</tt>
-     */
-    
-    /**
-     * @private Width for one picker item, i.e. when multiValue is off.
-     */
-    width: 179,
-    
-    initComponent: function() {
-        var me = this;
-        
-        if ( me.multiValue ) {
-            me.width *= 2;
-        };
-        
-        me.selectedCls = me.baseCls + '-selected';
-        me.disabledCls = me.baseCls + '-disabled';
-        
-        me.addEvents(
-            /**
-             * @event okclick
-             * Fires when the OK button is pressed.
-             * @param {Ext.picker.MultiTime} this
-             * @param {Array} value The current value
-             */
-            'okclick',
-            
-            /**
-             * @event cancelclick
-             * Fires when the Cancel button is pressed.
-             * @param {Ext.picker.MultiTime} this
-             */
-            'cancelclick',
-            
-            /**
-             * @event clearclick
-             * Fires when the Clear button is pressed.
-             * @param {Ext.picker.MultiTime} this
-             */
-            'clearclick',
-            
-            /**
-             * @event ampmclick
-             * Fires when AM/PM is selected.
-             * @param {Ext.picker.MultiTime} this
-             * @param {Array} value The current value
-             */
-            'ampmclick',
-            
-            /**
-             * @event hourclick
-             * Fires when an hour is selected.
-             * @param {Ext.picker.MultiTime} this
-             * @param {Ext.picker.MultiTime} value The current value
-             */
-            'hourclick',
-            
-            /**
-             * @event minuteclick
-             * Fires when minutes field is selected.
-             * @param {Ext.picker.MultiTime} this
-             * @param {Ext.picker.MultiTime} value The current value
-             */
-            'minuteclick'
-        );
-        
-        me.callParent();
-        
-        me.initButtons();
-        me.initDisabledValues();
-        me.setInitialValue();
-    },
-    
-    show: function() {
-        var me = this;
-        
-        me.callParent();
-        
-        // This is a stupid but robust way to work around
-        // keydown events that fire twice (XXX why?)
-        me.seenEnter  = false;
-        me.seenEscape = false;
-        
-        me.updateBody();
-    },
-    
-    initDisabledValues: function() {
-        var me = this,
-            disabledMinutes;
-        
-        switch ( me.increment ) {
-        case 60:
-            disabledMinutes = [ 1, 2, 3 ];
-            break;
-        case 30:
-            disabledMinutes = [ 1, 3 ];
-            break;
-        default:
-            disabledMinutes = [];
-        };
-        
-        me.disabledMinutes = disabledMinutes;
-    },
-    
-    setInitialValue: function() {
-        var me = this;
-        
-        me.setValue( me.value || me.clearValue() );
-        
-        me.updateBody();
-    },
-    
-    // private, inherit docs
-    beforeRender: function() {
-        var me = this;
-        
-        me.callParent(arguments);
-
-        Ext.apply(me.renderData, {
-            selectTimeText:   me.selectTimeText,
-            startingTimeText: me.startingTimeText,
-            endingTimeText:   me.endingTimeText,
-            amText:           me.amText,
-            pmText:           me.pmText,
-            hoursText:        me.hoursText,
-            minutesText:      me.minutesText,
-            hours:            me.hourValues,
-            minutes:          me.minuteValues,
-            baseCls:          me.baseCls,
-            multiValue:       me.multiValue,
-            ie:               Ext.isIE6 || Ext.isIE7 ? '-ie' : ''
-        });
-    },
-    
-    afterRender: function() {
-        var me = this;
-            
-        me.callParent();
-        
-        me.initEvents();
-        me.initCollections();
-    },
-    
-    finishRenderChildren: function() {
-        var me = this;
-        
-        me.callParent();
-        
-        me.okBtn.finishRender();
-        me.cancelBtn.finishRender();
-        me.clearBtn.finishRender();
-    },
-    
-    initEvents: function() {
-        var me = this,
-            bodyStart = me.bodyElStart,
-            bodyEnd   = me.bodyElEnd,
-            evEl      = me.eventEl;
-        
-        me.mon(bodyStart, 'click',    me.onBodyStartClick, me);
-        me.mon(bodyStart, 'dblclick', me.onBodyStartClick, me);
-        
-        if ( bodyEnd ) {
-            me.mon(bodyEnd, 'click',    me.onBodyEndClick, me);
-            me.mon(bodyEnd, 'dblclick', me.onBodyEndClick, me);
-        };
-            
-        evEl.addKeyListener(Ext.EventObject.ENTER, me.onEnter,  me);
-        evEl.addKeyListener(Ext.EventObject.ESC,   me.onEscape, me);
-    },
-    
-    initCollections: function() {
-        var me = this,
-            bodyStart = me.bodyElStart,
-            bodyEnd   = me.bodyElEnd;
-        
-        me.ampmStart    = bodyStart.select('.' + me.baseCls + '-ampm a');
-        me.hoursStart   = bodyStart.select('.' + me.baseCls + '-hour a');
-        me.minutesStart = bodyStart.select('.' + me.baseCls + '-minute a');
-        
-        if ( bodyEnd ) {
-            me.ampmEnd    = bodyEnd.select('.' + me.baseCls + '-ampm a');
-            me.hoursEnd   = bodyEnd.select('.' + me.baseCls + '-hour a');
-            me.minutesEnd = bodyEnd.select('.' + me.baseCls + '-minute a');
-        };
-    },
-    
-    initButtons: function() {
-        var me = this;
-
-        me.okBtn     = me.initOkButton();
-        me.cancelBtn = me.initCancelButton();
-        me.clearBtn  = me.initClearButton();
-    },
-    
-    initOkButton: function() {
-        var me = this;
-
-        return new Ext.button.Button({
-            text:     me.okText,
-            handler:  me.onOkClick,
-            scope:    me
-        });
-    },
-    
-    initCancelButton: function() {
-        var me = this;
-        
-        return new Ext.button.Button({
-            text:     me.cancelText,
-            handler:  me.onCancelClick,
-            scope:    me
-        });
-    },
-    
-    initClearButton: function() {
-        var me = this;
-        
-        return new Ext.button.Button({
-            text:     me.clearText,
-            handler:  me.onClearClick,
-            scope:    me
-        });
-    },
-    
-    onBodyStartClick: function(e, t) {
-        this.onBodyClick(e, t, 'start');
-    },
-    
-    onBodyEndClick: function(e, t) {
-        this.onBodyClick(e, t, 'end');
-    },
-    
-    onBodyClick: function(e, t, which) {
-        var me          = this,
-            disabledCls = me.disabledCls;
-        
-        if ( new Ext.Element(t).hasCls(disabledCls) ) {
-            return;
-        };
-        
-        if ( e.getTarget('.' + me.baseCls + '-ampm') ) {
-            e.stopEvent();
-            me.onAmPmClick(t, which);
-        }
-        else if ( e.getTarget('.' + me.baseCls + '-hour') ) {
-            e.stopEvent();
-            me.onHourClick(t, which);
-        }
-        else if ( e.getTarget('.' + me.baseCls + '-minute') ) {
-            e.stopEvent();
-            me.onMinuteClick(t, which);
-        };
-    },
-    
-    onAmPmClick: function(t, which) {
-        var me    = this,
-            value = me.value,
-            ampm, idx;
-        
-        ampm = which == 'start' ? me.ampmStart : me.ampmEnd;
-        idx  = ampm.indexOf(t);
-        
-        me.setAmPm(which, idx);
-
-        me.fireEvent('ampmclick', me, me.value);
-        me.updateBody();
-    },
-    
-    onHourClick: function(t, which) {
-        var me         = this,
-            value      = me.value,
-            hourValues = me.hourValues,
-            hours, idx;
-        
-        hours = which == 'start' ? me.hoursStart : me.hoursEnd;
-        idx   = hours.indexOf(t);
-        
-        me.setHours(which, hourValues[idx]);
-        
-        me.fireEvent('hourclick', me, me.value);
-        me.updateBody();
-    },
-    
-    onMinuteClick: function(t, which) {
-        var me           = this,
-            value        = me.value,
-            minuteValues = me.minuteValues,
-            minutes, idx;
-        
-        minutes = which == 'start' ? me.minutesStart : me.minutesEnd;
-        idx     = minutes.indexOf(t);
-        
-        me.setMinutes(which, minuteValues[idx]);
-        
-        me.fireEvent('minuteclick', me, me.value);
-        me.updateBody();
-    },
-    
-    clearValue: function() {
-        var me = this;
-        
-        me.value = [ [ null, null, null ], [ null, null, null ] ];
-        
-        return me.value;
-    },
-    
-    getValue: function(values) {
-        var me = this;
-    
-        return me.multiValue ? me.value : me.getStartValue();
-    },
-    
-    setValue: function(values) {
-        var me = this;
-        
-        if ( me.multiValue ) {
-            me.value = values;
-        }
-        else if ( Ext.isArray(values) ) {
-            me.value = [ values[0], [ null, null, null ] ];
-        }
-        else {
-            me.value = me.clearValue();
-        };
-        
-        me.updateBody();
-    },
-    
-    updateBody: function(){
-        var me = this;
-
-        if (me.rendered) {
-            // Start selector
-            me.updateBodySections({
-                ampm:        me.ampmStart,
-                hours:       me.hoursStart,
-                minutes:     me.minutesStart,
-                value:       me.getStartValue(),
-                which:      'start'
-            });
-            
-            // End selector
-            if ( me.multiValue ) {
-                me.updateBodySections({
-                    ampm:        me.ampmEnd,
-                    hours:       me.hoursEnd,
-                    minutes:     me.minutesEnd,
-                    value:       me.getEndValue(),
-                    which:      'end'
-                });
-            };
-        }
-    },
-    
-    updateBodySections: function(p) {
-        var me          = this,
-            ampm        = p.ampm,
-            hours       = p.hours,
-            minutes     = p.minutes,
-            value       = p.value,
-            which       = p.which;
-        
-        me.updateAmPmSelection(ampm, value, which);
-        me.updateHourSelection(hours, value, which);
-        me.updateMinuteSelection(minutes, value, which);
-    },
-    
-    updateAmPmSelection: function(section, value) {
-        var me          = this,
-            selectedCls = me.selectedCls,
-            ampm        = value[0],
-            item;
-        
-        section.removeCls(selectedCls);
-        
-        item = section.item(ampm);
-        
-        if ( item ) {
-            item.addCls(selectedCls);
-        };
-    },
-    
-    updateHourSelection: function(section, value) {
-        var me = this,
-            selectedCls = me.selectedCls,
-            disabledCls = me.disabledCls,
-            hourValues  = me.hourValues,
-            increment   = me.increment,
-            mfloor      = Math.floor,
-            ampm        = value[0],
-            hours       = value[1],
-            minutes     = value[2],
-            minTime, maxTime, offset;
-        
-        offset  = 12 * ampm;
-        minTime = mfloor(me.minTime / 3600) * 3600;
-        maxTime = mfloor(me.maxTime / 3600) * 3600;
-        
-        section.removeCls(selectedCls);
-        section.removeCls(disabledCls);
-        
-        section.each(function(el, all, index) {
-            var hourValue = hourValues[index],
-                seconds, disabled;
-            
-            seconds = (offset + index) * 3600;
-            disabled = ampm === null    ? false
-                     :                    seconds < minTime || seconds > maxTime
-                     ;
-            
-            if ( disabled ) {
-                el.dom.className = disabledCls;
-            }
-            else if ( hourValue === hours ) {
-                el.dom.className = selectedCls;
-                el.focus(50);
-            };
-        });
-    },
-    
-    updateMinuteSelection: function(section, value, which) {
-        var me = this,
-            selectedCls  = me.selectedCls,
-            disabledCls  = me.disabledCls,
-            hourValues   = me.hourValues,
-            minuteValues = me.minuteValues,
-            disabledMin  = me.disabledMinutes,
-            increment    = me.increment,
-            minTime      = me.minTime,
-            maxTime      = me.maxTime,
-            contains     = Ext.Array.contains,
-            indexOf      = Ext.Array.indexOf,
-            ampm         = value[0],
-            minutes      = value[2],
-            hours, offset;
-        
-        offset = 12 * ampm;
-        hours  = value[1] !== null ? indexOf(hourValues, value[1])
-               :                     NaN
-               ;
-        
-        section.removeCls(selectedCls);
-        section.removeCls(disabledCls);
-        
-        section.each(function(el, all, index) {
-            var minuteValue = minuteValues[index],
-                seconds, disabled;
-            
-            seconds  = (offset + hours) * 3600 + (index * 15) * 60;
-            disabled = contains(disabledMin, index) ? true
-                     : ampm  === null               ? false
-                     : which == 'start'             ? seconds < minTime
-                     : which == 'end'               ? seconds > maxTime
-                     :                                false
-                     ;
-            
-            if ( disabled ) {
-                el.dom.className = disabledCls;
-            }
-            else if ( minutes === minuteValue ) {
-                el.dom.className = selectedCls;
-                el.focus(50);
-            };
-        });
-    },
-    
-    getStartValue: function() {
-        var me    = this,
-            value = me.value;
-        
-        return value[0];
-    },
-    
-    getEndValue: function() {
-        var me    = this,
-            value = me.value;
-        
-        return value[1];
-    },
-    
-    setAmPm: function(which, value) {
-        this.value[which == 'start' ? 0 : 1][0] = value;
-    },
-    
-    setHours: function(which, value) {
-        this.value[which == 'start' ? 0 : 1][1] = value;
-    },
-    
-    setMinutes: function(which, value) {
-        this.value[which == 'start' ? 0 : 1][2] = value;
-    },
-    
-    onEnter: function(key, e) {
-        var me = this;
-
-        e.stopEvent();              // Does it ever help?
-        
-        if ( !me.seenEnter ) {
-            me.onOkClick();
-            me.seenEnter = true;
-        }
-        else {
-            me.seenEnter = false;   // It lives only twice
-        };
-    },
-    
-    onEscape: function(key, e) {
-        var me = this;
-        
-        e.stopEvent();
-        
-        if ( !me.seenEscape ) {
-            me.onCancelClick();
-            me.seenEscape = true;
-        }
-        else {
-            me.seenEscape = false;
-        };
-    },
-    
-    onOkClick: function() {
-        var me = this;
-        
-        me.fireEvent('okclick', me, me.value);
-        
-        me.clearValue();
-        me.updateBody();
-    },
-    
-    onCancelClick: function() {
-        var me = this;
-        
-        me.fireEvent('cancelclick', me);
-
-        me.clearValue();
-        me.updateBody();
-    },
-    
-    onClearClick: function() {
-        var me = this;
-
-        me.fireEvent('clearclick', me);
-        
-        me.clearValue();
-        me.updateBody();
-    },
-
-    beforeDestroy: function() {
-        var me = this;
-        
-        if ( me.rendered ) {
-            Ext.destroy(
-                me.okBtn,
-                me.cancelBtn,
-                me.clearBtn
-            );
-        };
-
-        Ext.destroyMembers('bodyEl', 'bodyElStart', 'bodyElEnd', 'eventEl', 'buttonsEl');
-        
-        me.callParent();
     }
 });
 

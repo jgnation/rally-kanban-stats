@@ -5,18 +5,14 @@
    "sdk": "2.0rc3",
    "javascript": [
       "App.js",
+      "ux/form/field/MultiValue.js",
+      "ux/picker/MultiDate.js",
+      "ux/form/field/MultiDate.js",
       "CenterGrid.js",
       "Chart.js",
       "MainGrid.js",
       "MainStore.js",
-      "MultiDateCalendarPanel.js",
-      "ux/form/field/MultiDate.js",
-      "ux/form/field/MultiMonth.js",
-      "ux/form/field/MultiTime.js",
-      "ux/form/field/MultiValue.js",
-      "ux/picker/MultiDate.js",
-      "ux/picker/MultiMonth.js",
-      "ux/picker/MultiTime.js"
+      "MultiDateCalendarPanel.js"
    ],
    "css": [
       "app.css",
