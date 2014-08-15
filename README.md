@@ -1,13 +1,4 @@
-exclusions
+rally-kanban-stats
 =========================
 
-## Overview
-
-
-## License
-
-AppTemplate is released under the MIT license.  See the file [LICENSE](./LICENSE) for the full text.
-
-##Documentation for SDK
-
-You can find the documentation on our help [site.](https://help.rallydev.com/apps/2.0rc3/doc/)
+A rally app that displays the average cycle time and average lead time for stories accepted in between date ranges.
